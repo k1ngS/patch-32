@@ -40,7 +40,7 @@ To run the simulation environment locally:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/k1ngS/patch-32
+   git clone https://github.com/k1ngS/patch-32.git
    cd patch-32
    ```
 
