@@ -85,4 +85,4 @@ src/
 
 ---
 
-Developed by **Marcos k1ngS** as a showcase of clean frontend architecture and performance engineering.
+Code architecture and state orchestration directed by **Marcos k1ngS**. Core functions and visual juice logic co-authored with AI assistants for a fast-paced Game Jam environment.
