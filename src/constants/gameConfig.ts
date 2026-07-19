@@ -28,6 +28,19 @@ export const CABLE_EXTEND_SPEED = 2.5;
 export const CABLE_RETRACT_SPEED = 4.0;
 export const MAX_ACTIVE_CABLES = 3;
 
+// ── Emitter Nodes ─────────────────────────────────────────
+export const EMITTER_COST = 15;
+export const EMITTER_FIRST_FREE = 1;
+export const MAX_EMITTERS = 8;
+export const EMITTER_COOLDOWN_MS = 1200;
+export const EMITTER_BOOT_MS = 5000;
+export const VISUAL_EVENT_TTL_MS = 500;
+
+// ── Auto-Cable Animations ─────────────────────────────────
+export const AUTO_CABLE_EXTEND_MS = 100;
+export const AUTO_CABLE_ACTIVE_MS = 100;
+export const AUTO_CABLE_RETRACT_MS = 100;
+
 // ── Infection Engine ────────────────────────────────────────
 export const INFECTION_TICK_RATE_MS = 1000; // 1 tick = 1 second for enemies moving 1 cell/tick
 export const INFECTION_PRESSURE_PER_NEIGHBOR = 0.25;

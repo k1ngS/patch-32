@@ -1,9 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   CORE_MAX_HEALTH,
-  NEIGHBOR_BONUS_POINTS,
   OVERCLOCK_CONFIGS,
-  SYNTHETIC_NEIGHBORS,
   UPGRADE_CONFIGS,
 } from "@/constants/gameConfig";
 import { useGameStore } from "@/store/useGameStore";
@@ -23,14 +21,24 @@ export function ControlPanel() {
   const core = useGameStore((state) => state.core);
   const remainingMs = useGameStore((state) => state.remainingMs);
   const upgrades = useGameStore((state) => state.upgrades);
-  const syntheticNeighborIndex = useGameStore(
-    (state) => state.syntheticNeighborIndex,
-  );
+  const logs = useGameStore((state) => state.logs);
+  const runId = useGameStore((state) => state.runId);
 
   const purchaseUpgrade = useGameStore((state) => state.purchaseUpgrade);
   const setOverclockPressed = useGameStore(
     (state) => state.setOverclockPressed,
   );
+
+  const [injectingMap, setInjectingMap] = useState<Record<string, boolean>>({});
+
+  // Cycle dots for injecting animation
+  const [dots, setDots] = useState("");
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 80);
+    return () => clearInterval(interval);
+  }, []);
 
   const healthPercentage = (core.health / CORE_MAX_HEALTH) * 100;
 
@@ -49,15 +57,31 @@ export function ControlPanel() {
     : 0;
 
   const handlePurchase = (id: UpgradeId) => {
-    purchaseUpgrade(id);
+    setInjectingMap((prev) => ({ ...prev, [id]: true }));
+    setTimeout(() => {
+      purchaseUpgrade(id);
+      setInjectingMap((prev) => ({ ...prev, [id]: false }));
+    }, 200);
   };
+
+  const totalUpgrades = Array.from(upgrades.values()).reduce(
+    (sum, upg) => sum + upg.level,
+    0
+  );
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const kernelVersion = `KERNEL v0.${totalUpgrades}.${phase.toUpperCase()}.${mounted ? runId : "000000"}`;
 
   return (
     <div className="flex flex-col w-[320px] h-full bg-[#09090c] border-l border-zinc-800 text-zinc-300 font-mono text-sm overflow-y-auto p-4 custom-scrollbar">
       {/* ── HEADER: STATUS & PHASE ── */}
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-cyan-400 tracking-wider border-b border-zinc-800 pb-2 mb-2">
-          THE COMMAND LEDGER
+        <h1 className="text-md font-bold text-cyan-400 tracking-wider border-b border-zinc-800 pb-2 mb-2 break-words">
+          {kernelVersion}
         </h1>
         <div className="flex justify-between items-center bg-zinc-900/50 p-2 border border-zinc-800 rounded">
           <span className="text-zinc-500 uppercase text-xs">Sys. Phase:</span>
@@ -65,7 +89,7 @@ export function ControlPanel() {
             {phase}
           </span>
         </div>
-        <p className="mt-2 text-xs text-zinc-500 italic">
+        <p className="mt-2 text-[10px] text-zinc-500 italic">
           {phase === "boot" && "> Awaiting sequence..."}
           {phase === "ready" && "> Initializing core bounds..."}
           {phase === "playing" && "> Link established. Defend the core."}
@@ -186,8 +210,8 @@ export function ControlPanel() {
             const isMax = upg.level >= upg.maxLevel;
             const cost = isMax ? null : config.costs[upg.level];
             const canAfford = !isMax && score.currency >= (cost || 0);
+            const isInjecting = injectingMap[config.id];
 
-            // Display labels mapped
             let label = "";
             let desc = "";
             if (config.id === "drone_speed") {
@@ -207,8 +231,11 @@ export function ControlPanel() {
             return (
               <div
                 key={config.id}
-                className="bg-zinc-900/40 border border-zinc-800 p-2 rounded"
+                className="bg-zinc-900/40 border border-zinc-800 p-2 rounded relative"
               >
+                {isInjecting && (
+                  <div className="absolute inset-0 bg-[rgba(88,224,216,0.20)] pointer-events-none rounded" />
+                )}
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-bold text-zinc-200 text-sm">
                     {label}
@@ -219,18 +246,22 @@ export function ControlPanel() {
                 </div>
                 <p className="text-[10px] text-zinc-500 mb-2">{desc}</p>
                 <button
-                  disabled={isMax || !canAfford}
+                  disabled={isMax || !canAfford || isInjecting}
                   onClick={() => handlePurchase(config.id)}
                   className={`w-full py-1 text-xs font-bold uppercase transition-colors flex justify-center items-center gap-1
                     ${
-                      isMax
-                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        : canAfford
-                          ? "bg-cyan-900/50 hover:bg-cyan-800 text-cyan-300 border border-cyan-800 hover:border-cyan-400"
-                          : "bg-zinc-900 text-red-500/70 border border-red-900/50 cursor-not-allowed"
+                      isInjecting 
+                        ? "bg-cyan-900 text-cyan-100 border border-cyan-400"
+                        : isMax
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : canAfford
+                            ? "bg-cyan-900/50 hover:bg-cyan-800 text-cyan-300 border border-cyan-800 hover:border-cyan-400"
+                            : "bg-zinc-900 text-red-500/70 border border-red-900/50 cursor-not-allowed"
                     }`}
                 >
-                  {isMax ? (
+                  {isInjecting ? (
+                    `> INJECTING${dots.padEnd(3, '\u00A0')}`
+                  ) : isMax ? (
                     "MAXIMUM LEVEL"
                   ) : (
                     <>
@@ -247,25 +278,27 @@ export function ControlPanel() {
         </div>
       </div>
 
-      {/* ── NEIGHBOR TELEMETRY ── */}
-      <div className="mt-auto">
+      {/* ── SYSTEM LOGS TERMINAL ── */}
+      <div className="mt-auto flex flex-col">
         <h2 className="text-[10px] uppercase text-zinc-600 font-bold tracking-widest mb-2">
-          Membrane Telemetry
+          System Logs
         </h2>
-        <div className="bg-[#050508] border border-zinc-800 p-3 rounded font-mono text-[10px] space-y-1">
-          <p className="text-zinc-500">Scanning peripheral sectors...</p>
-          <p className="text-cyan-500 animate-pulse">
-            {">"} LINK ESTABLISHED WITH EXTERNAL REALITY:{" "}
-            <span className="text-amber-400 font-bold">
-              {SYNTHETIC_NEIGHBORS[syntheticNeighborIndex]}
-            </span>
-          </p>
-          <p className="text-zinc-600 mt-2">
-            Active Pacts:{" "}
-            <span className="text-zinc-300">
-              {Math.floor(score.neighborBonuses / NEIGHBOR_BONUS_POINTS)}
-            </span>
-          </p>
+        <div className="bg-[#050508] border border-zinc-800 p-2 rounded font-mono text-[10px] h-[100px] overflow-y-auto flex flex-col-reverse custom-scrollbar space-y-1 space-y-reverse">
+          {logs.slice().reverse().map((log) => {
+            let typeCol = "text-zinc-400";
+            if (log.type === "PURGE") typeCol = "text-cyan-400";
+            else if (log.type === "CHAIN") typeCol = "text-amber-400";
+            else if (log.type === "PATCH") typeCol = "text-green-400";
+            else if (log.type === "BREACH" || log.type === "HALT") typeCol = "text-red-500";
+
+            return (
+              <div key={log.id} className="leading-tight">
+                <span className="text-zinc-600">[{formatTime(log.timeMs)}]</span>{" "}
+                <span className={`${typeCol} font-bold`}>{log.type}</span>{" "}
+                <span className="text-zinc-400">// {log.message}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

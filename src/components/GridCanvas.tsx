@@ -14,19 +14,21 @@ import {
   GRID_SIZE,
   SYNTHETIC_NEIGHBORS,
   TILE_SIZE,
+  CABLE_LENGTHS,
 } from "@/constants/gameConfig";
 import { useGameStore } from "@/store/useGameStore";
 
 import type {
   CoreState,
   DataNode,
-  Drone,
+  EmitterNode,
   GamePhase,
   GridPosition,
   NeonCable,
   Parasite,
   ParasiteVariant,
   ScoreState,
+  VisualEvent,
 } from "@/types/game";
 
 // ── Color Palette ───────────────────────────────────────────
@@ -107,21 +109,6 @@ function lerpColor(c1: string, c2: string, t: number): string {
 
 const keysDown = new Set<string>();
 
-// ── Trail History (ring buffer) ─────────────────────────────
-
-const TRAIL_LENGTH = 8;
-const trailBuffer: { x: number; y: number }[] = [];
-let trailWriteIndex = 0;
-
-function pushTrail(x: number, y: number): void {
-  if (trailBuffer.length < TRAIL_LENGTH) {
-    trailBuffer.push({ x, y });
-  } else {
-    trailBuffer[trailWriteIndex] = { x, y };
-  }
-  trailWriteIndex = (trailWriteIndex + 1) % TRAIL_LENGTH;
-}
-
 // ═════════════════════════════════════════════════════════════
 // COMPONENT
 // ═════════════════════════════════════════════════════════════
@@ -130,67 +117,50 @@ export default function GridCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
-  const trailTickRef = useRef<number>(0);
   const activeKeys = useRef<Set<string>>(new Set());
+  const mouseGridRef = useRef<GridPosition | null>(null);
 
-  // ── Input: Keyboard ─────────────────────────────────────
+  // ── Input: Keyboard (Overclock only) ────────────────────
 
   const handleKeyDown = (e: KeyboardEvent) => {
     const state = useGameStore.getState();
     if (state.phase !== 'playing') return;
-    if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      activeKeys.current.add(e.key);
-    }
-    if (e.code === 'Space') {
-      state.setLinkHeld(true);
-    }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') {
       state.setOverclockPressed();
     }
-    updateMoveVector();
   };
 
   const handleKeyUp = (e: KeyboardEvent) => {
-    const state = useGameStore.getState();
-    if (state.phase !== 'playing') return;
-    if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      activeKeys.current.delete(e.key);
-    }
-    if (e.code === 'Space') {
-      state.setLinkHeld(false);
-    }
-    updateMoveVector();
+    // Only kept for compliance if needed
   };
 
-  // ── Compute move vector from held keys ──────────────────
+  // ── Input: Mouse (Hover & Emitter Placement) ──────────────
 
-  function updateMoveVector(): void {
-    let x = 0;
-    let y = 0;
+  const handlePointerMove = (e: PointerEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
 
-    if (activeKeys.current.has("w") || activeKeys.current.has("ArrowUp")) y -= 1;
-    if (activeKeys.current.has("s") || activeKeys.current.has("ArrowDown")) y += 1;
-    if (activeKeys.current.has("a") || activeKeys.current.has("ArrowLeft")) x -= 1;
-    if (activeKeys.current.has("d") || activeKeys.current.has("ArrowRight")) x += 1;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
-    useGameStore.getState().setMoveVector(x, y);
-  }
+    const gx = Math.floor(x / TILE_SIZE);
+    const gy = Math.floor(y / TILE_SIZE);
 
-  // ── Input: Mouse (cable on canvas click) ────────────────
+    if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
+      mouseGridRef.current = { x: gx, y: gy };
+    } else {
+      mouseGridRef.current = null;
+    }
+  };
 
   const handlePointerDown = (e: PointerEvent) => {
     const state = useGameStore.getState();
     if (state.phase !== 'playing') return;
-    if (e.button === 0) {
-      state.setLinkHeld(true);
-    }
-  };
-  
-  const handlePointerUp = (e: PointerEvent) => {
-    const state = useGameStore.getState();
-    if (state.phase !== 'playing') return;
-    if (e.button === 0) {
-      state.setLinkHeld(false);
+    if (e.button === 0 && mouseGridRef.current) {
+      state.placeEmitter(mouseGridRef.current.x, mouseGridRef.current.y);
     }
   };
 
@@ -214,11 +184,7 @@ export default function GridCanvas() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     canvas.addEventListener("pointerdown", handlePointerDown);
-    canvas.addEventListener("pointerup", handlePointerUp);
-
-    // Reset trail
-    trailBuffer.length = 0;
-    trailWriteIndex = 0;
+    canvas.addEventListener("pointermove", handlePointerMove);
 
     // ── RAF Loop ────────────────────────────────────────
 
@@ -248,7 +214,7 @@ export default function GridCanvas() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       canvas.removeEventListener("pointerdown", handlePointerDown);
-      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointermove", handlePointerMove);
       keysDown.clear();
     };
   }, []);
@@ -262,7 +228,7 @@ export default function GridCanvas() {
     state: ReturnType<typeof useGameStore.getState>,
     time: number,
   ): void {
-    const { grid, drone, cables, parasites, core, score, phase } = state;
+    const { grid, emitterNodes, visualEvents, cables, parasites, core, score, phase } = state;
 
     // ── 0. Clear
     ctx.fillStyle = COL.bg;
@@ -272,21 +238,27 @@ export default function GridCanvas() {
     drawGrid(ctx, grid, time);
 
     // ── 2. Cables
-    drawCables(ctx, cables, drone, time);
+    drawCables(ctx, cables, time);
 
-    // ── 3. Core
+    // ── 3. Emitters
+    drawEmitters(ctx, emitterNodes, time);
+
+    // ── 4. Core
     drawCore(ctx, core, time);
 
-    // ── 4. Parasites
+    // ── 5. Parasites
     drawParasites(ctx, parasites, time);
 
-    // ── 5. Drone
-    drawDrone(ctx, drone, time);
+    // ── 6. Hover Preview
+    drawHoverPreview(ctx, state, time, mouseGridRef.current);
 
-    // ── 6. Border Neighbor Overlays
+    // ── 7. Visual Events (Hit flash & bits)
+    drawVisualEvents(ctx, visualEvents, time);
+
+    // ── 8. Border Neighbor Overlays
     drawBorderOverlays(ctx, cables, state.syntheticNeighborIndex, score, time);
 
-    // ── 7. Phase Overlays (boot, gameover, victory)
+    // ── 9. Phase Overlays (boot, gameover, victory)
     drawPhaseOverlay(ctx, phase, score, state.remainingMs, time);
   }
 
@@ -460,80 +432,130 @@ export default function GridCanvas() {
   }
 
   // ─────────────────────────────────────────────────────────
-  // DRAW: Drone (Player)
+  // DRAW: Emitters
   // ─────────────────────────────────────────────────────────
 
-  function drawDrone(
+  function drawEmitters(
     ctx: CanvasRenderingContext2D,
-    drone: Drone,
+    emitters: EmitterNode[],
     time: number,
   ): void {
-    const dx = drone.worldPos.x * TILE_SIZE + TILE_SIZE / 2;
-    const dy = drone.worldPos.y * TILE_SIZE + TILE_SIZE / 2;
+    for (const emitter of emitters) {
+      const cx = emitter.pos.x * TILE_SIZE + TILE_SIZE / 2;
+      const cy = emitter.pos.y * TILE_SIZE + TILE_SIZE / 2;
+      const size = 5; // 10x10 hex radius (roughly)
 
-    // ── Trail effect
-    trailTickRef.current++;
-    if (trailTickRef.current % 2 === 0) {
-      pushTrail(dx, dy);
-    }
-
-    for (let i = 0; i < trailBuffer.length; i++) {
-      const age = (trailWriteIndex - i + TRAIL_LENGTH) % TRAIL_LENGTH;
-      const alpha = Math.max(0, 0.25 - age * 0.03);
-      const size = Math.max(2, TILE_SIZE * 0.35 - age * 1.5);
-      ctx.fillStyle =
-        drone.state === "stunned"
-          ? `rgba(255, 68, 68, ${alpha})`
-          : `rgba(0, 229, 255, ${alpha})`;
-      ctx.fillRect(
-        trailBuffer[i].x - size / 2,
-        trailBuffer[i].y - size / 2,
-        size,
-        size,
-      );
-    }
-
-    // ── Main drone body
-    const isStunned = drone.state === "stunned";
-    const bodyColor = isStunned ? COL.droneStunned : COL.droneFill;
-    const glowColor = isStunned ? "rgba(255, 68, 68, 0.6)" : COL.droneGlow;
-
-    const breathe = 0.9 + Math.sin(time * 0.006) * 0.1;
-    const halfSize = TILE_SIZE * 0.4 * breathe;
-
-    // Glow
-    ctx.shadowColor = glowColor;
-    ctx.shadowBlur = isStunned ? 8 + Math.sin(time * 0.02) * 6 : 12;
-
-    // Rotated diamond shape
-    ctx.save();
-    ctx.translate(dx, dy);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = bodyColor;
-    ctx.fillRect(-halfSize, -halfSize, halfSize * 2, halfSize * 2);
-
-    // Inner highlight
-    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-    ctx.fillRect(
-      -halfSize * 0.4,
-      -halfSize * 0.4,
-      halfSize * 0.8,
-      halfSize * 0.8,
-    );
-    ctx.restore();
-
-    ctx.shadowBlur = 0;
-
-    // Linking indicator
-    if (drone.state === "linking") {
-      const linkPulse = 0.5 + Math.sin(time * 0.01) * 0.5;
-      ctx.strokeStyle = `rgba(0, 255, 213, ${0.6 * linkPulse})`;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 3]);
       ctx.beginPath();
-      ctx.arc(dx, dy, TILE_SIZE * 0.7, 0, Math.PI * 2);
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 2;
+        const x = cx + size * Math.cos(angle);
+        const y = cy + size * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+
+      if (emitter.state === "ready") {
+        ctx.fillStyle = "#58e0d8";
+        ctx.shadowColor = "#58e0d8";
+        ctx.shadowBlur = 10 + Math.sin(time * 0.005) * 5;
+      } else if (emitter.state === "cooldown") {
+        ctx.fillStyle = "#2a7a76";
+        ctx.shadowBlur = 0;
+      } else if (emitter.state === "booting") {
+        ctx.fillStyle = "#ff2244";
+        ctx.shadowColor = "#ff2244";
+        ctx.shadowBlur = 15 * (0.5 + Math.sin(time * 0.015) * 0.5);
+      }
+
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Range ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, emitter.length * TILE_SIZE, 0, Math.PI * 2);
+      ctx.strokeStyle = emitter.state === "booting" ? "rgba(255, 34, 68, 0.1)" : "rgba(88, 224, 216, 0.1)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DRAW: Hover Preview
+  // ─────────────────────────────────────────────────────────
+
+  function drawHoverPreview(
+    ctx: CanvasRenderingContext2D,
+    state: ReturnType<typeof useGameStore.getState>,
+    time: number,
+    hoverPos: GridPosition | null
+  ): void {
+    if (!hoverPos) return;
+    if (state.phase !== "playing") return;
+
+    const idx = hoverPos.y * GRID_SIZE + hoverPos.x;
+    const node = state.grid[idx];
+    
+    if (node && node.state === "clean" && !node.isCoreNode) {
+      const cx = hoverPos.x * TILE_SIZE + TILE_SIZE / 2;
+      const cy = hoverPos.y * TILE_SIZE + TILE_SIZE / 2;
+      
+      const blink = (time % 800) < 400 ? 0.55 : 0.2;
+      
+      ctx.beginPath();
+      ctx.arc(cx, cy, TILE_SIZE * 0.6, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(120, 220, 255, ${blink})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      const cableLengthLevel = state.upgrades.get("cable_length")?.level ?? 0;
+      const reach = CABLE_LENGTHS[cableLengthLevel];
+      
+      ctx.beginPath();
+      ctx.arc(cx, cy, reach * TILE_SIZE, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(120, 220, 255, 0.15)`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // DRAW: Visual Events
+  // ─────────────────────────────────────────────────────────
+
+  function drawVisualEvents(
+    ctx: CanvasRenderingContext2D,
+    visualEvents: VisualEvent[],
+    time: number
+  ): void {
+    for (const ev of visualEvents) {
+      const age = time - ev.bornAt;
+      if (age < 0) continue; // safety
+
+      const cx = ev.x * TILE_SIZE + TILE_SIZE / 2;
+      const cy = ev.y * TILE_SIZE + TILE_SIZE / 2;
+
+      // Cell Hit-Flash (0 to 80ms)
+      if (age <= 80) {
+        const flashAlpha = 1 - (age / 80);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+        ctx.fillRect(cx - 8, cy - 8, 16, 16);
+        ctx.globalCompositeOperation = "source-over";
+      }
+
+      // Floating +N Bits (0 to 380ms)
+      if (ev.bits > 0 && age <= 380) {
+        const textAlpha = 1 - (age / 380);
+        const floatY = cy - (age / 380) * 32;
+        
+        ctx.fillStyle = `rgba(255, 217, 106, ${textAlpha})`;
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`+${ev.bits}`, cx, floatY);
+      }
     }
   }
 
@@ -696,7 +718,6 @@ export default function GridCanvas() {
   function drawCables(
     ctx: CanvasRenderingContext2D,
     cables: NeonCable[],
-    drone: Drone,
     time: number,
   ): void {
     for (let i = 0; i < cables.length; i++) {
@@ -706,19 +727,15 @@ export default function GridCanvas() {
 
       let ex: number, ey: number;
 
-      if (cable.state === "extending") {
-        // Cable follows drone while extending
-        ex = drone.worldPos.x * TILE_SIZE + TILE_SIZE / 2;
-        ey = drone.worldPos.y * TILE_SIZE + TILE_SIZE / 2;
-      } else if (cable.targetPos) {
+      if (cable.targetPos) {
         ex = cable.targetPos.x * TILE_SIZE + TILE_SIZE / 2;
         ey = cable.targetPos.y * TILE_SIZE + TILE_SIZE / 2;
       } else {
         continue;
       }
 
-      // Interpolate based on progress for retracting cables
-      if (cable.state === "retracting") {
+      // Interpolate based on progress for extending and retracting cables
+      if (cable.state === "extending" || cable.state === "retracting") {
         const t = cable.progress;
         ex = sx + (ex - sx) * t;
         ey = sy + (ey - sy) * t;

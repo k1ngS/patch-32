@@ -55,6 +55,23 @@ export interface NeonCable {
   isBorderLink: boolean;
 }
 
+export interface EmitterNode {
+  readonly id: number;
+  readonly pos: GridPosition;
+  length: number;
+  state: "ready" | "cooldown" | "booting";
+  cooldownMs: number;
+}
+
+export interface VisualEvent {
+  readonly id: number;
+  readonly type: "purge";
+  readonly x: number;
+  readonly y: number;
+  readonly bits: number;
+  readonly bornAt: number;
+}
+
 export type ParasiteVariant = "pulse_worm" | "siege_bloc" | "storm_flitter";
 
 export interface Parasite {
@@ -127,6 +144,13 @@ export interface InputState {
   overclockJustPressed: boolean;
 }
 
+export interface LogEntry {
+  id: number;
+  timeMs: number;
+  type: "PURGE" | "CHAIN" | "PATCH" | "BREACH" | "HALT";
+  message: string;
+}
+
 export type GamePhase =
   | "boot"
   | "ready"
@@ -155,6 +179,13 @@ export interface GameState {
   syntheticNeighborIndex: number;
   syntheticNeighborTimerMs: number;
   spawnAccumulatorMs: number;
+  emitterNodes: EmitterNode[];
+  visualEvents: VisualEvent[];
+  nextEmitterId: number;
+  nextVisualEventId: number;
+  logs: LogEntry[];
+  nextLogId: number;
+  runId: string;
 }
 
 export interface GameActions {
@@ -182,6 +213,8 @@ export interface GameActions {
   purchaseUpgrade: (id: UpgradeId) => boolean;
   addScore: (points: number) => void;
   updateCombo: (deltaMs: number) => void;
+  placeEmitter: (gridX: number, gridY: number) => boolean;
+  addLog: (type: LogEntry["type"], message: string) => void;
 }
 
 export type GameStore = GameState & GameActions;

@@ -31,6 +31,15 @@ import {
   SHIELD_BUFF_CONFIG,
   SYNTHETIC_NEIGHBORS,
   UPGRADE_CONFIGS,
+  EMITTER_COST,
+  EMITTER_FIRST_FREE,
+  MAX_EMITTERS,
+  EMITTER_COOLDOWN_MS,
+  EMITTER_BOOT_MS,
+  VISUAL_EVENT_TTL_MS,
+  AUTO_CABLE_EXTEND_MS,
+  AUTO_CABLE_ACTIVE_MS,
+  AUTO_CABLE_RETRACT_MS,
 } from "@/constants/gameConfig";
 import {
   applyInfectionsFromSpread,
@@ -41,6 +50,7 @@ import {
   generateSpawnPosition,
   isBorderPosition,
   isInBounds,
+  manhattanDistance,
   posToIndex,
   pulseWormInfections,
   resolveChainPurge,
@@ -51,6 +61,7 @@ import type {
   DataNode,
   Direction,
   Drone,
+  EmitterNode,
   GamePhase,
   GameState,
   GameStore,
@@ -63,6 +74,7 @@ import type {
   SpawnWave,
   UpgradeId,
   UpgradeLevel,
+  VisualEvent,
 } from "@/types/game";
 
 function createInitialState(): GameState {
@@ -113,6 +125,10 @@ function createInitialState(): GameState {
     nextCableId: 1,
     infectionAccumulatorMs: 0,
     spawnAccumulatorMs: 0,
+    emitterNodes: [],
+    visualEvents: [],
+    nextEmitterId: 1,
+    nextVisualEventId: 1,
     input: {
       moveVector: { x: 0, y: 0 },
       linkHeld: false,
@@ -123,6 +139,9 @@ function createInitialState(): GameState {
     activeEntityCount: 0,
     syntheticNeighborIndex: 0,
     syntheticNeighborTimerMs: 0,
+    logs: [],
+    nextLogId: 1,
+    runId: Math.random().toString(16).slice(2, 8).toUpperCase(),
   };
 }
 
@@ -170,6 +189,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let spawnAcc = state.spawnAccumulatorMs + dt;
     const upgrades = state.upgrades;
     const input = state.input;
+    let logs = state.logs.slice();
+    let nextLogId = state.nextLogId;
+
+    const pushLog = (type: "PURGE" | "CHAIN" | "PATCH" | "BREACH" | "HALT", message: string) => {
+      logs.push({ id: nextLogId++, timeMs: newElapsed, type, message });
+      if (logs.length > 30) logs.shift();
+    };
 
     // ── Synthetic Neighbor Loop
     let neighborTimer = state.syntheticNeighborTimerMs + dt;
@@ -204,179 +230,170 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
     }
 
-    // ── Drone Movement
-    if (drone.state === "stunned") {
-      drone.stunTimerMs -= dt;
-      if (drone.stunTimerMs <= 0) {
-        drone.state = "idle";
-        drone.stunTimerMs = 0;
-      }
-    }
+    // ── Emitter Auto-Fire ──────────────────────────────────
+    const cableLengthLevel = getUpgradeLevel(upgrades, "cable_length");
+    const purgeLevel = getUpgradeLevel(upgrades, "purge_radius");
+    let emitterNodes = state.emitterNodes.map(e => ({...e})); // shallow clone to mutate safely
+    let visualEvents = state.visualEvents.slice();
+    let nextEmitterId = state.nextEmitterId;
+    let nextVisualEventId = state.nextVisualEventId;
 
-    if (drone.state !== "stunned") {
-      const moveX = input.moveVector.x;
-      const moveY = input.moveVector.y;
-      if (Math.abs(moveX) > 0.01 || Math.abs(moveY) > 0.01) {
-        let droneSpeed = DRONE_SPEEDS[getUpgradeLevel(upgrades, "drone_speed")];
-        droneSpeed = Math.min(20, droneSpeed); // hard cap 20
-        const moveDist = droneSpeed * (dt / 1000);
-        const len = Math.sqrt(moveX * moveX + moveY * moveY);
-        let newX = drone.worldPos.x + (moveX / len) * moveDist;
-        let newY = drone.worldPos.y + (moveY / len) * moveDist;
-
-        newX = Math.max(0, Math.min(GRID_SIZE - 1, newX));
-        newY = Math.max(0, Math.min(GRID_SIZE - 1, newY));
-
-        drone.worldPos.x = newX;
-        drone.worldPos.y = newY;
-        drone.gridPos = { x: Math.round(newX), y: Math.round(newY) };
-        drone.moveDir = { x: moveX / len, y: moveY / len };
-
-        if (drone.state !== "linking") {
-          drone.state = "moving";
+    for (const emitter of emitterNodes) {
+      if (emitter.state === "booting") {
+        emitter.cooldownMs -= dt;
+        if (emitter.cooldownMs <= 0) {
+          emitter.cooldownMs = 0;
+          emitter.state = "ready";
         }
-      } else {
-        if (drone.state !== "linking") {
-          drone.state = "idle";
+        continue;
+      }
+
+      if (emitter.state === "cooldown") {
+        emitter.cooldownMs -= core.overclockActive ? dt * 2 : dt;
+        if (emitter.cooldownMs <= 0) {
+          emitter.cooldownMs = 0;
+          emitter.state = "ready";
         }
-        drone.moveDir = { x: 0, y: 0 };
+        continue;
       }
-    }
 
-    // ── Cables
-    const fireRateMult = core.overclockActive ? ocConfig.mult : 1.0;
+      // State is 'ready' — scan for closest corrupted/unstable cell
+      const reach = CABLE_LENGTHS[cableLengthLevel];
+      let bestDist = Infinity;
+      let bestIndex = -1;
 
-    if (input.linkJustPressed && drone.state !== "stunned") {
-      const active = cables.filter(
-        (c) => c.state === "extending" || c.state === "active",
-      ).length;
-      if (
-        active < MAX_ACTIVE_CABLES &&
-        grid[posToIndex(drone.gridPos.x, drone.gridPos.y)].state === "clean"
-      ) {
-        cables.push({
-          id: nextCableId++,
-          sourcePos: { ...drone.gridPos },
-          targetPos: null,
-          state: "extending",
-          progress: 0,
-          length: 0,
-          ttlMs: CABLE_BASE_TTL_MS,
-          createdAtMs: newElapsed,
-          isBorderLink: false,
-        });
-        drone.state = "linking";
+      for (let gi = 0; gi < grid.length; gi++) {
+        const node = grid[gi];
+        if (node.state !== "corrupted" && node.state !== "unstable") continue;
+        if (node.purgeImmunityMs > 0) continue;
+        const dist = manhattanDistance(node.pos, emitter.pos);
+        if (dist > reach || dist >= bestDist) continue;
+        bestDist = dist;
+        bestIndex = gi;
       }
-    }
 
-    if (input.linkJustReleased && drone.state === "linking") {
-      const ext = cables.find((c) => c.state === "extending");
-      if (ext) {
-        const val = validateCableLink(
-          ext.sourcePos,
-          drone.gridPos,
-          grid,
-          getUpgradeLevel(upgrades, "cable_length"),
-          cables.filter((c) => c.state === "active").length,
-          MAX_ACTIVE_CABLES,
+      if (bestIndex < 0) continue; // no target in range
+
+      const targetNode = grid[bestIndex];
+      const targetPos = targetNode.pos;
+      const isBorder = isBorderPosition(targetPos.x, targetPos.y);
+
+      // Resolve purge
+      const purgeResult = resolveChainPurge(
+        bestIndex,
+        grid,
+        parasites,
+        purgeLevel,
+        isBorder,
+      );
+
+      let eventBits = 0;
+      if (purgeResult.cleansedIndices.length > 0) {
+        // Score payout
+        const baseScore =
+          SCORE_PER_PURGE +
+          (purgeResult.cleansedIndices.length - 1) * SCORE_PER_CHAIN_NODE;
+
+        const bits = Math.ceil(baseScore * score.multiplier);
+        eventBits = bits;
+        score.currency += bits;
+        score.total += bits;
+        score.totalPurges += purgeResult.cleansedIndices.length;
+        if (purgeResult.chainLength > score.longestChain) {
+          score.longestChain = purgeResult.chainLength;
+        }
+
+        pushLog("PURGE", `Cleared ${purgeResult.cleansedIndices.length} corrupted node(s).`);
+        if (purgeResult.chainLength > 1) {
+          pushLog("CHAIN", `Resonance cascade length: ${purgeResult.chainLength}!`);
+        }
+
+        // Combo
+        score.comboCount++;
+        score.comboTimerMs = COMBO_WINDOW_MS;
+        score.multiplier = Math.min(
+          COMBO_MAX_MULTIPLIER,
+          1 + score.comboCount * COMBO_MULTIPLIER_STEP,
         );
 
-        if (val.valid) {
-          ext.targetPos = { ...drone.gridPos };
-          ext.state = "active";
-          ext.progress = 1;
-          ext.length = val.distance;
-          ext.isBorderLink = val.isBorderLink;
-
-          const targetIndex = posToIndex(drone.gridPos.x, drone.gridPos.y);
-          const pRadius = getUpgradeLevel(upgrades, "purge_radius");
-          const pResult = resolveChainPurge(
-            targetIndex,
-            grid,
-            parasites,
-            pRadius,
-            val.isBorderLink,
-          );
-
-          if (pResult.cleansedIndices.length > 0) {
-            const pts =
-              SCORE_PER_PURGE +
-              (pResult.cleansedIndices.length - 1) * SCORE_PER_CHAIN_NODE;
-            score.currency += pResult.cleansedIndices.length * 2; // Assuming ~2 bits per node avg? "Bits currency"
-            score.totalPurges += pResult.cleansedIndices.length;
-            score.longestChain = Math.max(
-              score.longestChain,
-              pResult.chainLength,
-            );
-
-            score.comboCount++;
-            score.comboTimerMs = COMBO_WINDOW_MS;
-            score.multiplier = Math.min(
-              COMBO_MAX_MULTIPLIER,
-              1 + score.comboCount * COMBO_MULTIPLIER_STEP,
-            );
-
-            // Edge link neighbor bonus
-            if (val.isBorderLink) {
-              const keys = Object.keys(SHIELD_BUFF_CONFIG)
-                .map(Number)
-                .sort((a, b) => b - a);
-              let comboKey = 1;
-              for (const k of keys) {
-                if (score.comboCount >= k) {
-                  comboKey = k;
-                  break;
-                }
-              }
-              const buff =
-                SHIELD_BUFF_CONFIG[comboKey as keyof typeof SHIELD_BUFF_CONFIG];
-              core.shieldPoints += buff.hp;
-              core.shieldDurationMs = Math.max(
-                core.shieldDurationMs,
-                buff.duration,
-              );
-            }
-
-            score.total += pts * score.multiplier;
-          }
-
-          for (const pid of pResult.damagedParasiteIds) {
-            const p = parasites.find((p) => p.id === pid);
-            if (p) {
-              p.hp -= PURGE_PARASITE_DAMAGE;
-              if (p.hp <= 0) {
-                p.markedForRemoval = true;
-                score.currency += PARASITE_CONFIGS[p.variant].bitsDrop;
-              }
+        // Shield buff on border links
+        if (isBorder) {
+          const keys = Object.keys(SHIELD_BUFF_CONFIG)
+            .map(Number)
+            .sort((a, b) => b - a);
+          let comboKey = 1;
+          for (const k of keys) {
+            if (score.comboCount >= k) {
+              comboKey = k;
+              break;
             }
           }
-          ext.state = "completed";
-        } else {
-          ext.state = "retracting";
+          const buff = SHIELD_BUFF_CONFIG[comboKey as keyof typeof SHIELD_BUFF_CONFIG];
+          if (buff) {
+            core.shieldPoints += buff.hp;
+            core.shieldDurationMs = Math.max(core.shieldDurationMs, buff.duration);
+          }
         }
       }
-      drone.state = "idle";
+
+      // Damage parasites in purge radius
+      for (const pid of purgeResult.damagedParasiteIds) {
+        const p = parasites.find((par) => par.id === pid);
+        if (p) {
+          p.hp -= PURGE_PARASITE_DAMAGE;
+          if (p.hp <= 0) {
+            p.markedForRemoval = true;
+            score.currency += PARASITE_CONFIGS[p.variant].bitsDrop;
+          }
+        }
+      }
+
+      // Create visual cable (extending state for snappy animation)
+      cables.push({
+        id: nextCableId++,
+        sourcePos: emitter.pos,
+        targetPos,
+        state: "extending",
+        progress: 0,
+        length: bestDist,
+        ttlMs: AUTO_CABLE_ACTIVE_MS,
+        createdAtMs: newElapsed,
+        isBorderLink: isBorder,
+      });
+
+      // Register visual event
+      visualEvents.push({
+        id: nextVisualEventId++,
+        type: "purge",
+        x: targetPos.x,
+        y: targetPos.y,
+        bits: eventBits,
+        bornAt: newElapsed,
+      });
+
+      // Enter cooldown
+      emitter.state = "cooldown";
+      emitter.cooldownMs = EMITTER_COOLDOWN_MS;
     }
 
+    // ── Cables Tick
     for (let i = cables.length - 1; i >= 0; i--) {
       const c = cables[i];
-      if (c.state === "extending")
-        c.progress = Math.min(
-          1,
-          c.progress + CABLE_EXTEND_SPEED * fireRateMult * (dt / 1000),
-        );
-      else if (c.state === "active") {
+      if (c.state === "extending") {
+        c.progress += dt / AUTO_CABLE_EXTEND_MS;
+        if (c.progress >= 1) {
+          c.progress = 1;
+          c.state = "completed"; // maps to static glowing phase
+          c.ttlMs = AUTO_CABLE_ACTIVE_MS;
+        }
+      } else if (c.state === "completed") {
         c.ttlMs -= dt;
         if (c.ttlMs <= 0) c.state = "retracting";
-      } else if (c.state === 'retracting') {
-        c.progress -= CABLE_RETRACT_SPEED * (dt / 1000);
+      } else if (c.state === "retracting") {
+        c.progress -= dt / AUTO_CABLE_RETRACT_MS;
         if (c.progress <= 0) {
-          c.progress = -1; // sentinel
+          c.progress = -1; // sentinel for removal
         }
-      }
-      else if (c.state === 'completed') {
-        c.ttlMs -= dt;
-        if (c.ttlMs <= 0) c.state = 'retracting';
       }
     }
 
@@ -505,6 +522,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             core.health -= PARASITE_CONFIGS[p.variant].coreDamage;
             p.markedForRemoval = true;
             score.parasitesLeaked++;
+            pushLog("BREACH", "Core integrity compromised by parasite!");
             break;
           }
         }
@@ -520,13 +538,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    if (drone.state !== "stunned") {
-      const colId = checkDroneParasiteCollision(drone.gridPos, parasites);
-      if (colId >= 0) {
-        drone.state = "stunned";
-        drone.stunTimerMs = DRONE_STUN_DURATION_MS;
-        for (let c = cables.length - 1; c >= 0; c--) {
-          if (cables[c].state === "extending") cables[c].state = "retracting";
+    // ── Parasite-Emitter Collision
+    for (const p of parasites) {
+      if (p.markedForRemoval) continue;
+      for (const emitter of emitterNodes) {
+        if (p.pos.x === emitter.pos.x && p.pos.y === emitter.pos.y) {
+          emitter.state = "booting";
+          emitter.cooldownMs = EMITTER_BOOT_MS;
         }
       }
     }
@@ -535,6 +553,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (parasites[i].markedForRemoval) {
         parasites[i] = parasites[parasites.length - 1];
         parasites.pop();
+      }
+    }
+
+    // Prune expired visual events
+    for (let i = visualEvents.length - 1; i >= 0; i--) {
+      if (newElapsed - visualEvents[i].bornAt > VISUAL_EVENT_TTL_MS) {
+        visualEvents[i] = visualEvents[visualEvents.length - 1];
+        visualEvents.pop();
       }
     }
 
@@ -551,9 +577,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     parasites = parasites.slice();
 
     if (core.health <= 0) {
-      core.health = 0;
+      pushLog("HALT", "CRITICAL FAILURE. Core compromised.");
       set({
-        phase: 'gameover',
+        phase: "gameover",
         elapsedMs: newElapsed,
         remainingMs: newRemaining,
         drone,
@@ -568,12 +594,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
         activeEntityCount: parasites.length + cables.length,
         syntheticNeighborIndex: neighborIndex,
         syntheticNeighborTimerMs: neighborTimer,
+        emitterNodes,
+        visualEvents,
+        nextEmitterId,
+        nextVisualEventId,
         input: {
           ...input,
           linkJustPressed: false,
           linkJustReleased: false,
           overclockJustPressed: false,
-        }
+        },
+        logs,
+        nextLogId,
       });
       return;
     }
@@ -593,12 +625,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       activeEntityCount: parasites.length + cables.length,
       syntheticNeighborIndex: neighborIndex,
       syntheticNeighborTimerMs: neighborTimer,
+      emitterNodes,
+      visualEvents,
+      nextEmitterId,
+      nextVisualEventId,
       input: {
         ...input,
         linkJustPressed: false,
         linkJustReleased: false,
         overclockJustPressed: false,
-      }
+      },
+      logs,
+      nextLogId,
     });
   },
 
@@ -628,8 +666,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     })),
 
   moveDrone: () => {},
-  snapDroneToGrid: () =>
-    set((s) => ({ drone: { ...s.drone, worldPos: { ...s.drone.gridPos } } })),
+  snapDroneToGrid: () => {},
   initiateCable: () => {},
   completeCable: () => {},
   cancelCable: () =>
@@ -650,24 +687,70 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolvePurge: () => {},
 
   purchaseUpgrade: (id: UpgradeId) => {
-    const s = get();
-    const upg = s.upgrades.get(id);
-    if (!upg || upg.level >= upg.maxLevel) return false;
+    const { score, upgrades, addLog } = get();
+    const upg = upgrades.get(id);
+    if (!upg) return false;
+    if (upg.level >= upg.maxLevel) return false;
 
-    const cost = UPGRADE_CONFIGS.find((c) => c.id === id)!.costs[upg.level];
-    if (s.score.currency < cost) return false;
+    const cost = UPGRADE_CONFIGS.find((c) => c.id === id)?.costs[upg.level];
+    if (cost === undefined || score.currency < cost) return false;
 
-    const newUpgrades = new Map(s.upgrades);
-    newUpgrades.set(id, { ...upg, level: upg.level + 1 });
-
-    set({
-      upgrades: newUpgrades,
-      score: { ...s.score, currency: s.score.currency - cost },
+    set((state) => {
+      const newScore = { ...state.score, currency: state.score.currency - cost };
+      const newUpgrades = new Map(state.upgrades);
+      newUpgrades.set(id, { ...upg, level: upg.level + 1 });
+      
+      return {
+        score: newScore,
+        upgrades: newUpgrades,
+      };
     });
+    addLog("PATCH", `Firmware injected: ${id.toUpperCase()}`);
+
     return true;
   },
 
-  addScore: (pts) =>
+  addLog: (type, message) => set((state) => {
+    const newLogs = [...state.logs, { id: state.nextLogId, timeMs: state.elapsedMs, type, message }].slice(-30);
+    return { logs: newLogs, nextLogId: state.nextLogId + 1 };
+  }),
+
+  addScore: (pts: number) =>
     set((s) => ({ score: { ...s.score, total: s.score.total + pts } })),
   updateCombo: () => {},
+
+  placeEmitter: (gridX: number, gridY: number) => {
+    const state = get();
+    if (state.phase !== "playing") return false;
+    if (!isInBounds(gridX, gridY)) return false;
+    if (state.emitterNodes.length >= MAX_EMITTERS) return false;
+
+    const idx = posToIndex(gridX, gridY);
+    const node = state.grid[idx];
+    if (node.state !== "clean") return false;
+    if (node.isCoreNode) return false;
+
+    if (state.emitterNodes.some((e) => e.pos.x === gridX && e.pos.y === gridY)) return false;
+
+    const cost = state.emitterNodes.length < EMITTER_FIRST_FREE ? 0 : EMITTER_COST;
+    if (state.score.currency < cost) return false;
+
+    const cableLengthLevel = getUpgradeLevel(state.upgrades, "cable_length");
+
+    set({
+      emitterNodes: [
+        ...state.emitterNodes,
+        {
+          id: state.nextEmitterId,
+          pos: { x: gridX, y: gridY },
+          length: CABLE_LENGTHS[cableLengthLevel],
+          state: "ready",
+          cooldownMs: 0,
+        },
+      ],
+      nextEmitterId: state.nextEmitterId + 1,
+      score: { ...state.score, currency: state.score.currency - cost },
+    });
+    return true;
+  },
 }));
