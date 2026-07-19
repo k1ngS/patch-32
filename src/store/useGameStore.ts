@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { create } from "zustand";
+import { audioEngine } from "@/utils/audioEngine";
 import {
   CABLE_BASE_TTL_MS,
   CABLE_EXTEND_SPEED,
@@ -23,7 +24,7 @@ import {
   NEIGHBOR_BONUS_POINTS,
   OVERCLOCK_CONFIGS,
   PARASITE_CONFIGS,
-  PHASE_CONFIGS,
+  SECTOR_CONFIGS,
   PURGE_PARASITE_DAMAGE,
   RHYTHM_PATTERN,
   SCORE_PER_CHAIN_NODE,
@@ -84,6 +85,7 @@ function createInitialState(): GameState {
   }
 
   return {
+    activeScreen: "menu",
     phase: "boot",
     elapsedMs: 0,
     remainingMs: GAME_DURATION_MS,
@@ -107,6 +109,7 @@ function createInitialState(): GameState {
       overclockActive: false,
       overclockDurationMs: 0,
       overclockCooldownMs: 0,
+      thermalThrottleMs: 0,
     },
     score: {
       total: 0,
@@ -142,6 +145,13 @@ function createInitialState(): GameState {
     logs: [],
     nextLogId: 1,
     runId: Math.random().toString(16).slice(2, 8).toUpperCase(),
+    trauma: 0,
+    freezeFrames: 0,
+    sector02Triggered: false,
+    lastSectorChangeMs: 0,
+    currentSectorIndex: 0,
+    lastThrottleMs: 0,
+    saturation: 0,
   };
 }
 
@@ -155,9 +165,17 @@ function getUpgradeLevel(
 export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
 
+  setActiveScreen: (screen) => set({ activeScreen: screen }),
   initGame: () => set({ ...createInitialState(), phase: "ready" }),
   startGame: () =>
-    set((state) => (state.phase === "ready" ? { phase: "playing" } : {})),
+    set((state) => {
+      if (state.phase === "ready") {
+        audioEngine.init();
+        audioEngine.playBgm();
+        return { phase: "playing" };
+      }
+      return {};
+    }),
   pauseGame: () =>
     set((state) => (state.phase === "playing" ? { phase: "paused" } : {})),
   resumeGame: () =>
@@ -168,7 +186,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.phase !== "playing") return;
 
-    const dt = Math.min(deltaMs, MAX_DELTA_MS);
+    let dt = Math.min(deltaMs, MAX_DELTA_MS);
+    const realDt = dt;
+    let freezeFrames = state.freezeFrames;
+    let trauma = state.trauma;
+    let lastSectorChangeMs = state.lastSectorChangeMs;
+    let currentSectorIndex = state.currentSectorIndex;
+    let lastThrottleMs = state.lastThrottleMs;
+
+    if (freezeFrames > 0) {
+      freezeFrames--;
+      dt = 0;
+    }
+    trauma = Math.max(0, trauma - realDt * 0.0025);
+
     const newElapsed = state.elapsedMs + dt;
     const newRemaining = Math.max(0, GAME_DURATION_MS - newElapsed);
 
@@ -197,6 +228,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (logs.length > 30) logs.shift();
     };
 
+    // ── Global Saturation Damage
+    let corruptedCount = 0;
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i].state === "corrupted") corruptedCount++;
+    }
+    const saturation = corruptedCount / grid.length;
+    
+    if (saturation > 0.4) {
+      if (saturation >= 0.7) {
+        // Exponential meltdown
+        core.health -= (dt / 1000) * 100;
+        if (Math.random() < 0.05) pushLog("BREACH", "[CRITICAL] // CORE MELTDOWN IN PROGRESS");
+      } else {
+        // Linear damage
+        core.health -= (dt / 1000) * 15;
+      }
+    }
+
     // ── Synthetic Neighbor Loop
     let neighborTimer = state.syntheticNeighborTimerMs + dt;
     let neighborIndex = state.syntheticNeighborIndex;
@@ -209,10 +258,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // ── Overclock
     const ocLevel = getUpgradeLevel(upgrades, "core_overclock");
     const ocConfig = OVERCLOCK_CONFIGS[ocLevel];
+    if (core.thermalThrottleMs > 0) {
+      core.thermalThrottleMs = Math.max(0, core.thermalThrottleMs - dt);
+    }
     if (core.overclockCooldownMs > 0) core.overclockCooldownMs -= dt;
     if (core.overclockDurationMs > 0) {
       core.overclockDurationMs -= dt;
-      if (core.overclockDurationMs <= 0) core.overclockActive = false;
+      if (core.overclockDurationMs <= 0) {
+        core.overclockActive = false;
+        core.thermalThrottleMs = getUpgradeLevel(upgrades, "overclock_dampener") > 0 ? 2000 : 4000;
+        lastThrottleMs = newElapsed;
+        pushLog("HALT", "[SYSTEM] // OVERHEAT DETECTION: THERMAL THROTTLE ENGAGED");
+        audioEngine.playSfx("throttle");
+      }
     }
 
     if (
@@ -224,6 +282,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       core.overclockDurationMs = ocConfig.duration;
       core.overclockCooldownMs = ocConfig.cd;
       core.shieldPoints += ocConfig.hp;
+      audioEngine.playSfx("overclock");
       core.shieldDurationMs = Math.max(
         core.shieldDurationMs,
         ocConfig.duration,
@@ -249,7 +308,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       if (emitter.state === "cooldown") {
-        emitter.cooldownMs -= core.overclockActive ? dt * 2 : dt;
+        let cdMultiplier = 1;
+        if (core.overclockActive) cdMultiplier = 2;
+        else if (core.thermalThrottleMs > 0) cdMultiplier = 0.5;
+
+        emitter.cooldownMs -= dt * cdMultiplier;
         if (emitter.cooldownMs <= 0) {
           emitter.cooldownMs = 0;
           emitter.state = "ready";
@@ -259,6 +322,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       // State is 'ready' — scan for closest corrupted/unstable cell
       const reach = CABLE_LENGTHS[cableLengthLevel];
+      const targetingLevel = getUpgradeLevel(upgrades, "targeting_subroutines");
       let bestDist = Infinity;
       let bestIndex = -1;
 
@@ -266,8 +330,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const node = grid[gi];
         if (node.state !== "corrupted" && node.state !== "unstable") continue;
         if (node.purgeImmunityMs > 0) continue;
-        const dist = manhattanDistance(node.pos, emitter.pos);
-        if (dist > reach || dist >= bestDist) continue;
+        if (node.isDeadMemory) continue; // Cannot target dead memory
+        
+        let dist = manhattanDistance(node.pos, emitter.pos);
+        if (dist > reach) continue;
+
+        // Apply targeting heuristics if upgraded
+        if (targetingLevel > 0) {
+          const pOnNode = parasites.find(p => p.pos.x === node.pos.x && p.pos.y === node.pos.y && !p.markedForRemoval);
+          if (pOnNode) {
+            if (targetingLevel === 1) {
+              if (pOnNode.variant === "storm_flitter") dist -= 1000;
+            } else if (targetingLevel >= 2) {
+              if (pOnNode.variant === "siege_bloc") dist -= 2000;
+              else if (pOnNode.variant === "storm_flitter") dist -= 1000;
+            }
+          }
+        }
+
+        if (dist >= bestDist) continue;
         bestDist = dist;
         bestIndex = gi;
       }
@@ -290,9 +371,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       let eventBits = 0;
       if (purgeResult.cleansedIndices.length > 0) {
         // Score payout
-        const baseScore =
+        let baseScore =
           SCORE_PER_PURGE +
           (purgeResult.cleansedIndices.length - 1) * SCORE_PER_CHAIN_NODE;
+
+        const scavengerLvl = getUpgradeLevel(upgrades, "bit_scavenger");
+        if (purgeResult.chainLength > 1 && scavengerLvl > 0) {
+          if (Math.random() < scavengerLvl * 0.15) {
+            baseScore *= 2; // Proc Bit Scavenger
+            pushLog("PATCH", "[SYS] // BIT SCAVENGER PROC: x2 BITS EXTRACTED");
+          }
+        }
 
         const bits = Math.ceil(baseScore * score.multiplier);
         eventBits = bits;
@@ -303,9 +392,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
           score.longestChain = purgeResult.chainLength;
         }
 
-        pushLog("PURGE", `Cleared ${purgeResult.cleansedIndices.length} corrupted node(s).`);
+        trauma = Math.min(1.0, trauma + purgeResult.chainLength * 0.08);
+        if (purgeResult.chainLength >= 4) {
+          freezeFrames = 4;
+        }
+
+        pushLog("PURGE", `> PURGE EXECUTED // METRIC: ${purgeResult.cleansedIndices.length} CELLS DELETED`);
+        audioEngine.playSfx("purge");
         if (purgeResult.chainLength > 1) {
-          pushLog("CHAIN", `Resonance cascade length: ${purgeResult.chainLength}!`);
+          pushLog("CHAIN", `> CASCADE CLIMAX // REACTION EXPONENT: ${purgeResult.chainLength}`);
         }
 
         // Combo
@@ -330,7 +425,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           }
           const buff = SHIELD_BUFF_CONFIG[comboKey as keyof typeof SHIELD_BUFF_CONFIG];
           if (buff) {
-            core.shieldPoints += buff.hp;
+            const shieldLvl = getUpgradeLevel(upgrades, "shield_buffer");
+            core.shieldPoints += buff.hp + (shieldLvl * 40); // Upgrade gives +40 flat per level
             core.shieldDurationMs = Math.max(core.shieldDurationMs, buff.duration);
           }
         }
@@ -404,35 +500,62 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     }
 
-    // ── Phase & Spawning
-    // Find current phase
-    let currentPhase = PHASE_CONFIGS[3]; // default to 4
+    // ── Sector & Spawning
+    // Find current sector
+    let currentSector = SECTOR_CONFIGS[SECTOR_CONFIGS.length - 1];
     let timeAccum = 0;
-    for (let i = 0; i < PHASE_CONFIGS.length; i++) {
-      timeAccum += PHASE_CONFIGS[i].duration;
+    let sectorIndex = 0;
+    for (let i = 0; i < SECTOR_CONFIGS.length; i++) {
+      timeAccum += SECTOR_CONFIGS[i].duration;
       if (newElapsed <= timeAccum) {
-        currentPhase = PHASE_CONFIGS[i];
+        currentSector = SECTOR_CONFIGS[i];
+        sectorIndex = i;
         break;
       }
     }
 
-    // Spawn logic based on rhythm (simplified interval check)
-    // For a real rhythm we should track the spawn ticks, but time-based is fine.
-    // Assuming `state.waves` is repurposed as the rhythm index or we can just pick probabilistically.
-    while (spawnAcc >= currentPhase.spawnInterval) {
-      spawnAcc -= currentPhase.spawnInterval;
-      const spawns = Math.floor(currentPhase.spawnsPerInterval);
-      const isExtra = Math.random() < currentPhase.spawnsPerInterval - spawns;
+    if (sectorIndex > currentSectorIndex) {
+      currentSectorIndex = sectorIndex;
+      lastSectorChangeMs = newElapsed;
+    }
+
+    // Trigger Sector 02 Dead Memory Injection
+    let sector02Triggered = state.sector02Triggered;
+    if (sectorIndex >= 1 && !sector02Triggered) {
+      sector02Triggered = true;
+      let injected = 0;
+      let attempts = 0;
+      while (injected < 20 && attempts < 200) {
+        attempts++;
+        const rx = Math.floor(Math.random() * GRID_SIZE);
+        const ry = Math.floor(Math.random() * GRID_SIZE);
+        const idx = posToIndex(rx, ry);
+        const node = grid[idx];
+        if (node.state === "clean" && !node.isCoreNode && !node.isBorderNode) {
+          node.isDeadMemory = true;
+          node.state = "corrupted"; // Turn visually red/blocked
+          node.purgeImmunityMs = 99999999; // Permanent immunity
+          injected++;
+        }
+      }
+      pushLog("BREACH", `> SECTOR 02 REACHED // ${injected} BLOCKS OF DEAD MEMORY DETECTED`);
+    }
+
+    // Spawn logic based on rhythm
+    while (spawnAcc >= currentSector.spawnInterval) {
+      spawnAcc -= currentSector.spawnInterval;
+      const spawns = Math.floor(currentSector.spawnsPerInterval);
+      const isExtra = Math.random() < currentSector.spawnsPerInterval - spawns;
       const totalSpawns = spawns + (isExtra ? 1 : 0);
 
       for (let i = 0; i < totalSpawns; i++) {
         const r = Math.random();
         let variant: ParasiteVariant = "pulse_worm";
-        if (r < currentPhase.composition.pulse_worm) variant = "pulse_worm";
+        if (r < currentSector.composition.pulse_worm) variant = "pulse_worm";
         else if (
           r <
-          currentPhase.composition.pulse_worm +
-            currentPhase.composition.storm_flitter
+          currentSector.composition.pulse_worm +
+            currentSector.composition.storm_flitter
         )
           variant = "storm_flitter";
         else variant = "siege_bloc";
@@ -440,7 +563,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const br = Math.random();
         let edge: Direction = "N";
         let sum = 0;
-        for (const [k, v] of Object.entries(currentPhase.borders)) {
+        for (const [k, v] of Object.entries(currentSector.borders)) {
           sum += v;
           if (br <= sum) {
             edge = k as Direction;
@@ -522,7 +645,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             core.health -= PARASITE_CONFIGS[p.variant].coreDamage;
             p.markedForRemoval = true;
             score.parasitesLeaked++;
-            pushLog("BREACH", "Core integrity compromised by parasite!");
+            trauma = Math.min(1.0, trauma + 0.55);
+            pushLog("BREACH", "> WARNING // CORE BREACH INTERACTION DETECTED");
+            audioEngine.playSfx("breach");
             break;
           }
         }
@@ -579,6 +704,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (core.health <= 0) {
       pushLog("HALT", "CRITICAL FAILURE. Core compromised.");
       set({
+        activeScreen: "gameover",
         phase: "gameover",
         elapsedMs: newElapsed,
         remainingMs: newRemaining,
@@ -606,6 +732,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
         logs,
         nextLogId,
+        trauma,
+        freezeFrames,
+        sector02Triggered,
+        lastSectorChangeMs,
+        currentSectorIndex,
+        lastThrottleMs,
+        saturation,
       });
       return;
     }
@@ -637,6 +770,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
       logs,
       nextLogId,
+      trauma,
+      freezeFrames,
     });
   },
 

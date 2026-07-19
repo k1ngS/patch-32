@@ -6,7 +6,7 @@ import type { Direction, ParasiteVariant, UpgradeId } from '@/types/game';
 
 // ── Grid ────────────────────────────────────────────────────
 export const GRID_SIZE = 32;
-export const TILE_SIZE = 16;
+export const TILE_SIZE = 24;
 export const CANVAS_SIZE = GRID_SIZE * TILE_SIZE;
 export const CORE_POS = { x: 16, y: 16 } as const;
 
@@ -88,6 +88,10 @@ export const UPGRADE_CONFIGS: readonly UpgradeConfig[] = [
   { id: 'cable_length', maxLevel: 4, costs: [15, 40, 90, 200] },
   { id: 'purge_radius', maxLevel: 4, costs: [15, 40, 90, 200] },
   { id: 'core_overclock', maxLevel: 4, costs: [15, 40, 90, 200] },
+  { id: 'overclock_dampener', maxLevel: 1, costs: [250] },
+  { id: 'bit_scavenger', maxLevel: 3, costs: [50, 120, 250] },
+  { id: 'shield_buffer', maxLevel: 3, costs: [30, 80, 150] },
+  { id: 'targeting_subroutines', maxLevel: 2, costs: [100, 250] },
 ];
 
 export const OVERCLOCK_CONFIGS = [
@@ -116,37 +120,29 @@ export const PARASITE_CONFIGS: Record<ParasiteVariant, ParasiteConfig> = {
 // ── Spawn System Data ───────────────────────────────────────
 export const RHYTHM_PATTERN: Direction[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
-export const PHASE_CONFIGS = [
-  // Phase 1 (0–30s)
+export const SECTOR_CONFIGS = [
+  // Sector 01: Root (0-60s)
   {
-    duration: 30000,
-    spawnInterval: 3000,
+    duration: 60000,
+    spawnInterval: 2500,
     spawnsPerInterval: 1,
     composition: { pulse_worm: 0.8, storm_flitter: 0.2, siege_bloc: 0 },
     borders: { N: 0.25, E: 0.25, S: 0.25, W: 0.25, NE: 0, SE: 0, SW: 0, NW: 0 }
   },
-  // Phase 2 (30–90s)
+  // Sector 02: Cache (60-120s) - Dead memory is injected at start of this sector
   {
     duration: 60000,
     spawnInterval: 1500,
-    spawnsPerInterval: 1,
+    spawnsPerInterval: 1.2,
     composition: { pulse_worm: 0.55, storm_flitter: 0.25, siege_bloc: 0.20 },
     borders: { N: 0.35, E: 0.25, S: 0.25, W: 0.15, NE: 0, SE: 0, SW: 0, NW: 0 }
   },
-  // Phase 3 (90–150s)
+  // Sector 03: Gateway (120-180s) - Aggressive spawn
   {
     duration: 60000,
-    spawnInterval: 1000,
-    spawnsPerInterval: 1,
-    composition: { pulse_worm: 0.35, storm_flitter: 0.30, siege_bloc: 0.35 },
-    borders: { N: 0.40, E: 0.30, S: 0.20, W: 0.10, NE: 0, SE: 0, SW: 0, NW: 0 }
-  },
-  // Phase 4 (150–180s)
-  {
-    duration: 30000,
-    spawnInterval: 1000,
+    spawnInterval: 800,
     spawnsPerInterval: 1.5,
-    composition: { pulse_worm: 0.20, storm_flitter: 0.30, siege_bloc: 0.50 },
-    borders: { N: 0.125, E: 0.125, S: 0.125, W: 0.125, NE: 0.125, SE: 0.125, SW: 0.125, NW: 0.125 } // Max chaos
+    composition: { pulse_worm: 0.25, storm_flitter: 0.35, siege_bloc: 0.40 },
+    borders: { N: 0.125, E: 0.125, S: 0.125, W: 0.125, NE: 0.125, SE: 0.125, SW: 0.125, NW: 0.125 } 
   }
 ];

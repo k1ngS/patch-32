@@ -96,6 +96,7 @@ export function createGrid(): DataNode[] {
         purgeImmunityMs: 0,
         isBorderNode: isBorderPosition(x, y),
         isCoreNode: isCorePosition(x, y),
+        isDeadMemory: false,
         stabilityWeight: isCorePosition(x, y) ? 5.0 : 1.0,
         auraSpreadBuff: 0,
       };

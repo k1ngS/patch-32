@@ -77,7 +77,7 @@ export function ControlPanel() {
   const kernelVersion = `KERNEL v0.${totalUpgrades}.${phase.toUpperCase()}.${mounted ? runId : "000000"}`;
 
   return (
-    <div className="flex flex-col w-[320px] h-full bg-[#09090c] border-l border-zinc-800 text-zinc-300 font-mono text-sm overflow-y-auto p-4 custom-scrollbar">
+    <div className="flex flex-col w-[320px] h-full bg-[#09090c] border-l border-zinc-800 text-zinc-300 font-mono text-sm overflow-hidden p-4">
       {/* ── HEADER: STATUS & PHASE ── */}
       <div className="mb-6">
         <h1 className="text-md font-bold text-cyan-400 tracking-wider border-b border-zinc-800 pb-2 mb-2 break-words">
@@ -198,8 +198,8 @@ export function ControlPanel() {
       </div>
 
       {/* ── UPGRADE MATRIX ── */}
-      <div className="mb-6 flex-grow">
-        <h2 className="text-xs uppercase text-zinc-500 font-bold tracking-widest mb-3 border-b border-zinc-800 pb-1">
+      <div className="mb-6 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+        <h2 className="text-xs uppercase text-zinc-500 font-bold tracking-widest mb-3 border-b border-zinc-800 pb-1 flex-shrink-0">
           Upgrade Matrix
         </h2>
         <div className="space-y-3">
@@ -226,6 +226,18 @@ export function ControlPanel() {
             } else if (config.id === "core_overclock") {
               label = "Core Overclock";
               desc = "Unlocks & upgrades manual emergency shield.";
+            } else if (config.id === "overclock_dampener") {
+              label = "Heat Sink";
+              desc = "Reduces thermal throttle penalty by 50%.";
+            } else if (config.id === "bit_scavenger") {
+              label = "Bit Scavenger";
+              desc = "Adds chance to double bits from chain purges.";
+            } else if (config.id === "shield_buffer") {
+              label = "Shield Capacitor";
+              desc = "Boosts shield gained from border links.";
+            } else if (config.id === "targeting_subroutines") {
+              label = "Targeting Protocol";
+              desc = "Forces Emitters to prioritize critical threats.";
             }
 
             return (

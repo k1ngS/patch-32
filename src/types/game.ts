@@ -24,6 +24,7 @@ export interface DataNode {
   purgeImmunityMs: number;
   readonly isBorderNode: boolean;
   readonly isCoreNode: boolean;
+  isDeadMemory: boolean;
   stabilityWeight: number;
   // Aura buff applied by Siege Blocs
   auraSpreadBuff: number;
@@ -102,6 +103,7 @@ export interface CoreState {
   overclockActive: boolean;
   overclockDurationMs: number;
   overclockCooldownMs: number;
+  thermalThrottleMs: number;
 }
 
 export interface ScoreState {
@@ -120,7 +122,11 @@ export type UpgradeId =
   | "drone_speed"
   | "cable_length"
   | "purge_radius"
-  | "core_overclock";
+  | "core_overclock"
+  | "overclock_dampener"
+  | "bit_scavenger"
+  | "shield_buffer"
+  | "targeting_subroutines";
 
 export interface UpgradeLevel {
   readonly id: UpgradeId;
@@ -159,7 +165,10 @@ export type GamePhase =
   | "victory"
   | "gameover";
 
+export type ActiveScreen = "menu" | "tutorial" | "game" | "gameover";
+
 export interface GameState {
+  activeScreen: ActiveScreen;
   phase: GamePhase;
   elapsedMs: number;
   remainingMs: number;
@@ -186,9 +195,17 @@ export interface GameState {
   logs: LogEntry[];
   nextLogId: number;
   runId: string;
+  trauma: number;
+  freezeFrames: number;
+  sector02Triggered: boolean;
+  lastSectorChangeMs: number;
+  currentSectorIndex: number;
+  lastThrottleMs: number;
+  saturation: number;
 }
 
 export interface GameActions {
+  setActiveScreen: (screen: ActiveScreen) => void;
   initGame: () => void;
   startGame: () => void;
   pauseGame: () => void;
