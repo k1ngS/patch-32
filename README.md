@@ -42,28 +42,27 @@ To run the simulation environment locally:
    ```bash
    git clone [https://github.com/your-username/patch-32.git](https://github.com/your-username/patch-32.git)
    cd patch-32
-
-```
+   ```
 
 2. **Install the dependencies:**
-```bash
-npm install
+    ```bash
+    npm install
 
-```
+    ```
 
 
 3. **Run the local development server:**
-```bash
-npm run dev
+    ```bash
+    npm run dev
 
-```
+    ```
 
 
 4. **Compile and Type-Check:**
-```bash
-npx tsc --noEmit
+    ```bash
+    npx tsc --noEmit
 
-```
+    ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to witness the simulation.
 
