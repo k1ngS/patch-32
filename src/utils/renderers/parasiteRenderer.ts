@@ -50,7 +50,7 @@ function drawPulseWorm(
   const isLatePhase = progression > 0.5;
   const freq = isLatePhase ? 0.025 : 0.0094; // ~4Hz late, ~1.5Hz early
   const pulse = 0.7 + Math.sin(time * freq + p.id * 1.7) * 0.3;
-  const size = TILE_SIZE * 0.4 * pulse;
+  const size = TILE_SIZE * 0.55 * pulse; // Increased from 0.4
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -93,7 +93,7 @@ function drawSiegeBloc(
   progression: number,
   time: number
 ): void {
-  const halfSize = TILE_SIZE * 0.4;
+  const halfSize = TILE_SIZE * 0.55; // Increased from 0.4
   const isLatePhase = progression > 0.4;
 
   ctx.save();
@@ -106,7 +106,7 @@ function drawSiegeBloc(
   ctx.lineWidth = 0.5;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
-  ctx.arc(0, 0, TILE_SIZE * 0.8 * auraScale, 0, Math.PI * 2);
+  ctx.arc(0, 0, TILE_SIZE * 1.0 * auraScale, 0, Math.PI * 2); // Increased from 0.8
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -151,7 +151,7 @@ function drawStormFlitter(
 ): void {
   const isLatePhase = progression > 0.6;
   const flash = Math.sin(time * 0.015 + p.id * 2.3) > 0.7 ? 1.3 : 1.0;
-  const size = TILE_SIZE * 0.35 * flash;
+  const size = TILE_SIZE * 0.50 * flash; // Increased from 0.35
 
   // Jitter calculation
   const jitterAmt = isLatePhase ? 3 : 1.5;

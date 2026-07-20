@@ -21,34 +21,38 @@ export default function Home() {
 
       {/* TELA DE JOGO / GAMEOVER */}
       {(activeScreen === "game" || activeScreen === "gameover") && (
-        <div className="w-full h-full max-w-6xl flex flex-col items-center justify-between gap-2 overflow-hidden">
-          {/* TOP HUD BAR */}
-          <TopHUD />
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1 sm:gap-2 overflow-hidden">
+          
+          {/* ÁREA CENTRAL MAXIMIZADA */}
+          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 overflow-hidden">
+            
+            {/* HUD SUPERIOR COLADA NO GRID */}
+            <div className="w-full max-w-[min(90vw,80vh)] mb-1">
+              <TopHUD />
+            </div>
 
-          {/* ÁREA CENTRAL (PAINEL ESQUERDO, ARENA CENTRAL PROTAGONISTA, PAINEL DIREITO) */}
-          <div className="flex-1 flex items-center justify-center gap-2 sm:gap-4 w-full min-h-0 overflow-hidden">
-            {/* PAINEL SECUNDÁRIO ESQUERDO: LOGS (DESKTOP) */}
-            <aside className="hidden xl:flex flex-col w-56 h-full max-h-[min(65vh,520px)] shrink-0">
-              <LogTerminal />
-            </aside>
-
-            {/* CONTAINER PROTAGONISTA DA ARENA */}
-            <section className="relative h-full max-h-[min(65vh,520px)] aspect-square bg-[#0a0a10] border border-zinc-800/80 rounded-xl flex items-center justify-center p-1 sm:p-2 shadow-2xl overflow-hidden shrink-0">
-              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:16px_16px] opacity-20 pointer-events-none"></div>
+            {/* CONTAINER PROTAGONISTA DA ARENA (70-80% DA TELA) */}
+            <section className="relative w-full max-w-[min(90vw,80vh)] aspect-square bg-[#0a0a10] border border-zinc-800/80 rounded-xl flex items-center justify-center p-0.5 sm:p-1 shadow-2xl overflow-hidden shrink-0">
+              <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:24px_24px] opacity-20 pointer-events-none"></div>
               <GridCanvas />
               
               {/* OVERLAY DE FIM DE JOGO */}
               {activeScreen === "gameover" && <GameOverReport />}
             </section>
 
-            {/* PAINEL SECUNDÁRIO DIREITO: TELEMETRIA (DESKTOP) */}
-            <aside className="hidden xl:flex flex-col w-52 h-full max-h-[min(65vh,520px)] shrink-0">
-              <TelemetryPanel />
-            </aside>
+            {/* ACTION BAR INFERIOR COLADA NO GRID */}
+            <div className="w-full max-w-[min(90vw,80vh)] mt-1">
+              <ActionBar />
+            </div>
+
           </div>
 
-          {/* ACTION BAR INFERIOR (UPGRADES & OVERCLOCK) */}
-          <ActionBar />
+          {/* PAINÉIS LATERAIS OCULTOS (HUD REORGANIZADA PARA FOCO CENTRAL) */}
+          <div className="hidden">
+            <LogTerminal />
+            <TelemetryPanel />
+          </div>
+
         </div>
       )}
     </main>

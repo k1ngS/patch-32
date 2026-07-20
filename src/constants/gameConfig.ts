@@ -31,7 +31,7 @@ export const MAX_ACTIVE_CABLES = 3;
 // ── Emitter Nodes ─────────────────────────────────────────
 export const EMITTER_COST = 15;
 export const EMITTER_FIRST_FREE = 1;
-export const MAX_EMITTERS = 8;
+export const MAX_EMITTERS = 6;
 export const EMITTER_COOLDOWN_MS = 1200;
 export const EMITTER_BOOT_MS = 5000;
 export const VISUAL_EVENT_TTL_MS = 500;

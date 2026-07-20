@@ -66,10 +66,11 @@ export interface EmitterNode {
 
 export interface VisualEvent {
   readonly id: number;
-  readonly type: "purge";
+  readonly type: "purge" | "first_kill" | "core_damage" | "first_bits";
   readonly x: number;
   readonly y: number;
-  readonly bits: number;
+  readonly bits?: number;
+  readonly text?: string;
   readonly bornAt: number;
 }
 
@@ -113,6 +114,7 @@ export interface ScoreState {
   comboCount: number;
   comboTimerMs: number;
   currency: number; // Bits
+  displayedCurrency: number; // For smooth increment
   totalPurges: number;
   longestChain: number;
   parasitesLeaked: number; // for final score calculation
@@ -203,6 +205,8 @@ export interface GameState {
   currentSectorIndex: number;
   lastThrottleMs: number;
   saturation: number;
+  firstKillDone: boolean;
+  firstBitsTimeMs: number;
 }
 
 export interface GameActions {

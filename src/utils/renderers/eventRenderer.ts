@@ -13,30 +13,82 @@ export function drawVisualEvents(
     const cx = ev.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = ev.y * TILE_SIZE + TILE_SIZE / 2;
 
-    // Flash inicial com onda de choque expansiva
-    if (age <= 120) {
-      const progress = age / 120;
-      const flashAlpha = 1 - progress;
-      const shockwaveRadius = 8 + progress * 24;
-
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
+    if (ev.type === "purge" || ev.type === "first_kill") {
+      const isFirst = ev.type === "first_kill";
+      const duration = isFirst ? 240 : 120;
       
-      // Anel expansivo de Purge
-      ctx.strokeStyle = `rgba(0, 255, 200, ${flashAlpha * 0.8})`;
-      ctx.lineWidth = 2 * (1 - progress);
-      ctx.beginPath();
-      ctx.arc(cx, cy, shockwaveRadius, 0, Math.PI * 2);
-      ctx.stroke();
+      if (age <= duration) {
+        const progress = age / duration;
+        const flashAlpha = 1 - progress;
+        const shockwaveRadius = (isFirst ? 16 : 8) + progress * (isFirst ? 48 : 24);
 
-      // Flash central
-      ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha * 0.7})`;
-      ctx.fillRect(cx - 6, cy - 6, 12, 12);
-      ctx.restore();
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        
+        ctx.strokeStyle = `rgba(0, 255, 200, ${flashAlpha * (isFirst ? 1.0 : 0.8)})`;
+        ctx.lineWidth = (isFirst ? 4 : 2) * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(cx, cy, shockwaveRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha * (isFirst ? 1.0 : 0.7)})`;
+        ctx.fillRect(cx - (isFirst ? 10 : 6), cy - (isFirst ? 10 : 6), (isFirst ? 20 : 12), (isFirst ? 20 : 12));
+        ctx.restore();
+      }
+
+      if (isFirst && ev.text && age <= 1000) {
+        const progress = age / 1000;
+        const textAlpha = Math.sin((1 - progress) * Math.PI * 0.5);
+        const floatY = cy - progress * 40;
+        
+        ctx.save();
+        ctx.shadowColor = "#00ffc8";
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = `rgba(255, 255, 255, ${textAlpha})`;
+        ctx.font = `bold 14px monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText(ev.text, cx, floatY);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+    } else if (ev.type === "core_damage") {
+      if (age <= 300) {
+        const progress = age / 300;
+        const alpha = 1 - progress;
+        const radius = 10 + progress * 40;
+        
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 30, 30, ${alpha})`;
+        ctx.lineWidth = 3 * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.fillStyle = `rgba(255, 0, 0, ${alpha * 0.5})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      if (ev.text && age <= 800) {
+        const progress = age / 800;
+        const textAlpha = Math.sin((1 - Math.pow(progress, 2)) * Math.PI * 0.5);
+        const floatY = cy - 20 - progress * 30;
+        
+        ctx.save();
+        ctx.shadowColor = "#ff0000";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = `rgba(255, 100, 100, ${textAlpha})`;
+        ctx.font = `bold 16px monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText(ev.text, cx, floatY);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
     }
 
-    // Texto de Bits flutuante e animado
-    if (ev.bits > 0 && age <= 450) {
+    if (ev.bits !== undefined && ev.bits > 0 && age <= 450) {
       const progress = age / 450;
       const textAlpha = Math.sin((1 - progress) * Math.PI * 0.5);
       const floatY = cy - progress * 36;

@@ -228,8 +228,27 @@ function drawHUD(
   ctx.fillStyle = COL.hudText;
   ctx.fillText(`SCR ${Math.floor(score.total)}`, 24, 32);
 
-  ctx.fillStyle = "#ffcc44";
-  ctx.fillText(`₿${score.currency}`, 24, 52);
+  ctx.save();
+  let bitsScale = 1;
+  let bitsColor = "#ffcc44";
+  if (state.firstBitsTimeMs > 0) {
+    const age = state.elapsedMs - state.firstBitsTimeMs;
+    if (age >= 0 && age < 600) {
+      const progress = age / 600;
+      if (progress < 0.15) {
+        bitsScale = 1 + (progress / 0.15) * 0.5;
+      } else {
+        bitsScale = 1.5 - ((progress - 0.15) / 0.85) * 0.5;
+      }
+      ctx.shadowColor = "#ffcc44";
+      ctx.shadowBlur = 10 * (1 - progress);
+    }
+  }
+
+  ctx.fillStyle = bitsColor;
+  ctx.font = `bold ${Math.round(14 * bitsScale)}px monospace`;
+  ctx.fillText(`₿${Math.floor(score.displayedCurrency)}`, 24, 52);
+  ctx.restore();
 
   ctx.fillStyle = "rgba(136, 204, 255, 0.8)";
   ctx.font = "bold 12px monospace";
@@ -329,22 +348,58 @@ export function drawCentralMarquee(ctx: CanvasRenderingContext2D, state: GameSta
   const cx = CANVAS_SIZE / 2;
   const cy = CANVAS_SIZE / 2;
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  // 0. Opening Beat
+  if (state.elapsedMs < 2000) {
+    const t = state.elapsedMs;
+    let alpha = 0;
+    if (t < 500) alpha = t / 500;
+    else if (t < 1500) alpha = 1;
+    else alpha = 1 - ((t - 1500) / 500);
+
+    ctx.save();
+    ctx.font = "bold 11px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = `rgba(0, 255, 200, ${alpha})`;
+    ctx.fillText(">KERNEL v0.0.0", 24, cy - 20);
+    ctx.fillText(">CORE ONLINE", 24, cy);
+    ctx.fillText(">GRID INITIALIZED", 24, cy + 20);
+    ctx.fillStyle = `rgba(255, 68, 68, ${alpha})`;
+    ctx.fillText(">THREAT DETECTED", 24, cy + 40);
+    ctx.restore();
+  }
 
   // 1. Sector Change
-  if (time - state.lastSectorChangeMs < 1500 && state.lastSectorChangeMs > 0) {
-    const blink = Math.floor(time / 150) % 2 === 0;
-    if (blink) {
-      ctx.font = "bold 22px monospace";
-      ctx.fillStyle = "rgba(88, 224, 216, 0.9)";
-      ctx.shadowColor = "rgba(88, 224, 216, 0.5)";
-      ctx.shadowBlur = 10;
-      ctx.fillText(`[ INITIALIZING PROTOCOL: SECTOR 0${state.currentSectorIndex + 1} ]`, cx, cy);
-      ctx.shadowBlur = 0;
-    }
-    return; 
+  if (time - state.lastSectorChangeMs < 500 && state.lastSectorChangeMs > 0 && state.currentSectorIndex > 0) {
+    const age = time - state.lastSectorChangeMs;
+    const progress = age / 500;
+    // Dark fade
+    const fadeAlpha = Math.sin(progress * Math.PI) * 0.8;
+    ctx.save();
+    ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    const title = `PHASE ${state.currentSectorIndex + 1}`;
+    const subtitle = state.currentSectorIndex === 1 ? "ESCALATION" : "PRESSURE";
+    
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 24px monospace";
+    ctx.fillStyle = `rgba(255, 255, 255, ${fadeAlpha * 1.2})`;
+    ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
+    ctx.shadowBlur = 15;
+    ctx.fillText(title, cx, cy - 10);
+    
+    ctx.font = "bold 16px monospace";
+    ctx.fillStyle = `rgba(255, 68, 68, ${fadeAlpha * 1.2})`;
+    ctx.shadowColor = "rgba(255, 68, 68, 0.8)";
+    ctx.fillText(subtitle, cx, cy + 15);
+    ctx.restore();
+    return;
   }
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
 
   // 2. Throttle Flitch
   if (time - state.lastThrottleMs < 100 && state.lastThrottleMs > 0) {

@@ -117,6 +117,7 @@ function createInitialState(): GameState {
       comboCount: 0,
       comboTimerMs: 0,
       currency: 0,
+      displayedCurrency: 0,
       totalPurges: 0,
       longestChain: 0,
       parasitesLeaked: 0,
@@ -152,6 +153,8 @@ function createInitialState(): GameState {
     currentSectorIndex: 0,
     lastThrottleMs: 0,
     saturation: 0,
+    firstKillDone: false,
+    firstBitsTimeMs: -1,
   };
 }
 
@@ -222,6 +225,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const input = state.input;
     let logs = state.logs.slice();
     let nextLogId = state.nextLogId;
+    let firstKillDone = state.firstKillDone;
+    let firstBitsTimeMs = state.firstBitsTimeMs;
+
+    // Smooth bits increment
+    if (score.displayedCurrency < score.currency) {
+      score.displayedCurrency += (score.currency - score.displayedCurrency) * (dt / 100);
+      if (score.currency - score.displayedCurrency < 0.5) {
+        score.displayedCurrency = score.currency;
+      }
+    }
 
     const pushLog = (type: "PURGE" | "CHAIN" | "PATCH" | "BREACH" | "HALT", message: string) => {
       logs.push({ id: nextLogId++, timeMs: newElapsed, type, message });
@@ -392,6 +405,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
           score.longestChain = purgeResult.chainLength;
         }
 
+        if (bits > 0 && firstBitsTimeMs < 0) {
+          firstBitsTimeMs = newElapsed;
+          visualEvents.push({
+            id: nextVisualEventId++,
+            type: "first_bits",
+            x: targetPos.x,
+            y: targetPos.y,
+            bits: bits,
+            bornAt: newElapsed,
+          });
+          eventBits = 0; // Prevent duplicate floating text for this event
+        }
+
         trauma = Math.min(1.0, trauma + purgeResult.chainLength * 0.08);
         if (purgeResult.chainLength >= 4) {
           freezeFrames = 4;
@@ -440,6 +466,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (p.hp <= 0) {
             p.markedForRemoval = true;
             score.currency += PARASITE_CONFIGS[p.variant].bitsDrop;
+
+            if (!firstKillDone) {
+              firstKillDone = true;
+              visualEvents.push({
+                id: nextVisualEventId++,
+                type: "first_kill",
+                x: p.pos.x,
+                y: p.pos.y,
+                text: "FIRST PURGE",
+                bornAt: newElapsed,
+              });
+            }
           }
         }
       }
@@ -644,12 +682,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
           }
 
           if (p.pos.x === CORE_POS.x && p.pos.y === CORE_POS.y) {
-            core.health -= PARASITE_CONFIGS[p.variant].coreDamage;
+            const damage = PARASITE_CONFIGS[p.variant].coreDamage;
+            core.health -= damage;
             p.markedForRemoval = true;
             score.parasitesLeaked++;
             trauma = Math.min(1.0, trauma + 0.55);
             pushLog("BREACH", "> WARNING // CORE BREACH INTERACTION DETECTED");
             audioEngine.playSfx("breach");
+            
+            visualEvents.push({
+              id: nextVisualEventId++,
+              type: "core_damage",
+              x: CORE_POS.x,
+              y: CORE_POS.y,
+              text: `-${damage} HP`,
+              bornAt: newElapsed,
+            });
             break;
           }
         }
@@ -741,6 +789,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentSectorIndex,
         lastThrottleMs,
         saturation,
+        firstKillDone,
+        firstBitsTimeMs,
       });
       return;
     }
@@ -774,6 +824,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextLogId,
       trauma,
       freezeFrames,
+      firstKillDone,
+      firstBitsTimeMs,
     });
   },
 
@@ -860,7 +912,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.phase !== "playing") return false;
     if (!isInBounds(gridX, gridY)) return false;
-    if (state.emitterNodes.length >= MAX_EMITTERS) return false;
 
     const idx = posToIndex(gridX, gridY);
     const node = state.grid[idx];
@@ -872,11 +923,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const cost = state.emitterNodes.length < EMITTER_FIRST_FREE ? 0 : EMITTER_COST;
     if (state.score.currency < cost) return false;
 
+    let currentNodes = state.emitterNodes;
+    let currentCables = state.cables;
+
+    // Node Cap (Limite de 6 nós ativos). Ao exceder 6, remove o nó mais antigo e seus cabos.
+    if (currentNodes.length >= 6) {
+      const oldestNode = currentNodes[0];
+      currentNodes = currentNodes.slice(1);
+      currentCables = currentCables.filter(
+        (c) => !(c.sourcePos.x === oldestNode.pos.x && c.sourcePos.y === oldestNode.pos.y)
+      );
+    }
+
     const cableLengthLevel = getUpgradeLevel(state.upgrades, "cable_length");
 
     set({
       emitterNodes: [
-        ...state.emitterNodes,
+        ...currentNodes,
         {
           id: state.nextEmitterId,
           pos: { x: gridX, y: gridY },
@@ -885,6 +948,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           cooldownMs: 0,
         },
       ],
+      cables: currentCables,
       nextEmitterId: state.nextEmitterId + 1,
       score: { ...state.score, currency: state.score.currency - cost },
     });

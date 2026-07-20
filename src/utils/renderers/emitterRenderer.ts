@@ -10,7 +10,7 @@ export function drawEmitters(
   for (const emitter of emitters) {
     const cx = emitter.pos.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = emitter.pos.y * TILE_SIZE + TILE_SIZE / 2;
-    const size = 5;
+    const size = 8; // Increased from 5
 
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
