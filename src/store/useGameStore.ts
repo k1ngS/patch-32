@@ -604,6 +604,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const p = parasites[i];
         if (p.markedForRemoval) continue;
 
+        p.prevPos = { ...p.pos };
+
         let moveAmount = 0;
         if (p.variant === "pulse_worm") {
           p.ticksSincePulse = (p.ticksSincePulse || 0) + 1;

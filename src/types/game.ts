@@ -78,6 +78,7 @@ export type ParasiteVariant = "pulse_worm" | "siege_bloc" | "storm_flitter";
 export interface Parasite {
   readonly id: number;
   pos: GridPosition;
+  prevPos?: GridPosition;
   moveDir: WorldPosition;
   speed: number;
   infectionPower: number;

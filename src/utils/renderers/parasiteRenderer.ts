@@ -8,16 +8,22 @@ export function drawParasites(
   ctx: CanvasRenderingContext2D,
   parasites: Parasite[],
   elapsedMs: number,
-  time: number
+  time: number,
+  infectionAccumulatorMs: number
 ): void {
   const progression = Math.min(1, Math.max(0, elapsedMs / GAME_DURATION_MS));
+  const tickProgress = Math.min(1, Math.max(0, infectionAccumulatorMs / 1000)); // INFECTION_TICK_RATE_MS = 1000
 
   for (let i = 0; i < parasites.length; i++) {
     const p = parasites[i];
     if (p.markedForRemoval) continue;
 
-    const px = p.pos.x * TILE_SIZE + TILE_SIZE / 2;
-    const py = p.pos.y * TILE_SIZE + TILE_SIZE / 2;
+    const prev = p.prevPos || p.pos;
+    const lerpX = prev.x + (p.pos.x - prev.x) * tickProgress;
+    const lerpY = prev.y + (p.pos.y - prev.y) * tickProgress;
+
+    const px = lerpX * TILE_SIZE + TILE_SIZE / 2;
+    const py = lerpY * TILE_SIZE + TILE_SIZE / 2;
 
     switch (p.variant) {
       case "pulse_worm":
@@ -156,7 +162,7 @@ function drawStormFlitter(
   ctx.translate(cx + jx, cy + jy);
 
   ctx.shadowColor = COL.stormFlitterGlow;
-  ctx.shadowBlur = 10 * flash;
+  ctx.shadowBlur = 4 * flash;
 
   ctx.beginPath();
   ctx.moveTo(0, -size);

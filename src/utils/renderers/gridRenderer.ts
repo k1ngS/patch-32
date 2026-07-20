@@ -105,9 +105,12 @@ export function drawHoverPreview(
     const cableLengthLevel = state.upgrades.get("cable_length")?.level ?? 0;
     const reach = CABLE_LENGTHS[cableLengthLevel];
     
+    // Reduces opacity as the radius grows (max reach ~22)
+    const opacity = Math.max(0.04, 0.18 - (reach * 0.006));
+
     ctx.beginPath();
     ctx.arc(cx, cy, reach * TILE_SIZE, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(120, 220, 255, 0.15)`;
+    ctx.strokeStyle = `rgba(120, 220, 255, ${opacity.toFixed(3)})`;
     ctx.lineWidth = 1;
     ctx.stroke();
   }

@@ -71,7 +71,7 @@ export default function GridCanvas() {
       drawCables(ctx!, state.cables, timestamp);
       drawEmitters(ctx!, state.emitterNodes, state.core.thermalThrottleMs, timestamp);
       drawCore(ctx!, state.core, timestamp);
-      drawParasites(ctx!, state.parasites, state.elapsedMs, timestamp);
+      drawParasites(ctx!, state.parasites, state.elapsedMs, timestamp, state.infectionAccumulatorMs);
       drawHoverPreview(ctx!, state, timestamp, mouseGridRef.current);
       drawVisualEvents(ctx!, state.visualEvents, timestamp);
 
@@ -98,21 +98,12 @@ export default function GridCanvas() {
 
   // ── 3. Layout (CSS scaling without scrollbars) ──────────────
   return (
-    <div className="flex-1 h-full min-h-screen bg-[#050508] flex items-center justify-center p-6 overflow-hidden select-none">
-      <div 
-        className="relative flex-shrink-0 bg-[#0a0a10] border border-zinc-900 rounded shadow-[0_0_50px_rgba(0,0,0,0.8)] aspect-square"
-        style={{
-          width: "auto",
-          height: "85vh",
-          maxHeight: "calc(100vw - 360px)"
-        }}
-      >
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full block cursor-crosshair"
-          tabIndex={0}
-        />
-      </div>
+    <div className="relative w-full h-full flex-shrink-0 bg-[#0a0a10] rounded shadow-[0_0_50px_rgba(0,0,0,0.8)] aspect-square overflow-hidden select-none">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block cursor-crosshair"
+        tabIndex={0}
+      />
     </div>
   );
 }

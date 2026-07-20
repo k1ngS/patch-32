@@ -1,4 +1,4 @@
-import { CANVAS_SIZE, GRID_SIZE, SYNTHETIC_NEIGHBORS, CORE_MAX_HEALTH } from "@/constants/gameConfig";
+import { CANVAS_SIZE, GRID_SIZE, SYNTHETIC_NEIGHBORS, CORE_MAX_HEALTH, MAX_EMITTERS } from "@/constants/gameConfig";
 import type { GamePhase, ScoreState, NeonCable, GameState } from "@/types/game";
 import { COL, lerpColor } from "./colors";
 import { useGameStore } from "@/store/useGameStore"; // Needed only for activeEntityCount, etc. if required, but we can pass state directly
@@ -28,7 +28,7 @@ export function drawBorderOverlays(
   const pulse = 0.5 + Math.sin(time * 0.004 * Math.PI) * 0.5;
   const alpha = 0.4 + pulse * 0.6;
 
-  ctx.font = "bold 8px monospace";
+  ctx.font = "bold 10px monospace";
   ctx.textAlign = "center";
 
   if (borderHits.N) {
@@ -100,7 +100,7 @@ export function drawPhaseOverlay(
     ctx.fillText("PATCH_32", CANVAS_SIZE / 2, CANVAS_SIZE / 2 - 40);
     ctx.shadowBlur = 0;
 
-    ctx.font = "10px monospace";
+    ctx.font = "11px monospace";
     ctx.fillStyle = COL.hudText;
     ctx.fillText(
       "DEFEND THE CORE  ·  180 SECONDS",
@@ -117,7 +117,7 @@ export function drawPhaseOverlay(
       CANVAS_SIZE / 2 + 30,
     );
 
-    ctx.font = "7px monospace";
+    ctx.font = "10px monospace";
     ctx.fillStyle = "rgba(136, 204, 255, 0.5)";
     ctx.fillText(
       "MOUSE: PLACE EMITTER  ·  E: OVERCLOCK",
@@ -230,6 +230,10 @@ function drawHUD(
 
   ctx.fillStyle = "#ffcc44";
   ctx.fillText(`₿${score.currency}`, 24, 52);
+
+  ctx.fillStyle = "rgba(136, 204, 255, 0.8)";
+  ctx.font = "bold 12px monospace";
+  ctx.fillText(`NODES ${activeEntityCount}/${MAX_EMITTERS}`, 24, 70);
 
   ctx.textAlign = "right";
   if (score.multiplier > 1) {
