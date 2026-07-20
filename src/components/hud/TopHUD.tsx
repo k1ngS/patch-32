@@ -11,7 +11,14 @@ function formatTime(ms: number) {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function TopHUD() {
+interface TopHUDProps {
+  showLogs?: boolean;
+  showTelemetry?: boolean;
+  onToggleLogs?: () => void;
+  onToggleTelemetry?: () => void;
+}
+
+export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetry }: TopHUDProps) {
   const core = useGameStore((state) => state.core);
   const score = useGameStore((state) => state.score);
   const remainingMs = useGameStore((state) => state.remainingMs);
@@ -20,20 +27,49 @@ export function TopHUD() {
   const healthPercentage = Math.max(0, Math.min(100, (core.health / CORE_MAX_HEALTH) * 100));
 
   return (
-    <header className="w-full max-w-5xl flex items-center justify-between gap-4 bg-[#0a0a10]/90 border border-zinc-800/80 rounded-lg p-2 sm:p-3 font-mono select-none shadow-lg backdrop-blur shrink-0">
+    <header className="w-full flex items-center justify-between gap-2 sm:gap-4 bg-[#0a0a10]/95 border border-zinc-800/80 rounded-lg p-2 sm:p-2.5 font-mono select-none shadow-lg backdrop-blur shrink-0">
       {/* SECTOR / WAVE INFO */}
-      <div className="flex flex-col min-w-[80px] sm:min-w-[120px]">
-        <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Sector</span>
+      <div className="flex flex-col min-w-[70px] sm:min-w-[110px]">
+        <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Sector</span>
         <span className="text-xs sm:text-sm font-bold text-cyan-400">
           0{currentSectorIndex + 1} // {formatTime(remainingMs)}
         </span>
       </div>
 
+      {/* DRAWER TOGGLES */}
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <button
+          onClick={onToggleLogs}
+          className={`px-2 py-1 text-[10px] sm:text-xs font-bold rounded border transition-all flex items-center gap-1.5 font-mono ${
+            showLogs
+              ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.4)]"
+              : "bg-zinc-900/90 hover:bg-zinc-800 border-zinc-700/80 text-zinc-400 hover:text-cyan-400"
+          }`}
+          title="Toggle System Logs"
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${showLogs ? "bg-cyan-400 animate-pulse" : "bg-zinc-600"}`}></span>
+          <span>[&gt;_ LOGS]</span>
+        </button>
+
+        <button
+          onClick={onToggleTelemetry}
+          className={`px-2 py-1 text-[10px] sm:text-xs font-bold rounded border transition-all flex items-center gap-1.5 font-mono ${
+            showTelemetry
+              ? "bg-amber-500/20 border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.4)]"
+              : "bg-zinc-900/90 hover:bg-zinc-800 border-zinc-700/80 text-zinc-400 hover:text-amber-400"
+          }`}
+          title="Toggle Telemetry"
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${showTelemetry ? "bg-amber-400 animate-pulse" : "bg-zinc-600"}`}></span>
+          <span>[⬡ TELEM]</span>
+        </button>
+      </div>
+
       {/* CORE INTEGRITY BAR */}
       <div className="flex-1 max-w-md flex flex-col space-y-1">
         <div className="flex justify-between items-center text-xs">
-          <span className="text-zinc-400 uppercase text-[10px] sm:text-xs font-semibold">Core Health</span>
-          <span className="text-cyan-400 font-bold text-[10px] sm:text-xs">
+          <span className="text-zinc-400 uppercase text-[9px] sm:text-xs font-semibold">Core Health</span>
+          <span className="text-cyan-400 font-bold text-[9px] sm:text-xs">
             {Math.ceil(core.health)} / {CORE_MAX_HEALTH}
           </span>
         </div>
@@ -53,8 +89,8 @@ export function TopHUD() {
       </div>
 
       {/* BITS ECONOMY */}
-      <div className="flex flex-col items-end min-w-[70px] sm:min-w-[100px]">
-        <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Bits</span>
+      <div className="flex flex-col items-end min-w-[60px] sm:min-w-[90px]">
+        <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Bits</span>
         <span className="text-xs sm:text-sm font-bold text-amber-500 flex items-center gap-1">
           <span className="text-amber-400 font-normal">₿</span> {score.currency}
         </span>
