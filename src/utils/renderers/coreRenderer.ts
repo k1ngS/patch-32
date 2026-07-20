@@ -11,29 +11,49 @@ export function drawCore(
   const cy = CORE_POS.y * TILE_SIZE + TILE_SIZE / 2;
   const healthPct = Math.max(0, core.health / CORE_MAX_HEALTH);
 
-  const basePulse = 0.85 + Math.sin(time * 0.003) * 0.15;
+  // Frequência de pulsação acelera conforme a saúde cai (frequência cardíaca mecânica)
+  const pulseFreq = 0.003 + (1 - healthPct) * 0.008;
+  const basePulse = 0.85 + Math.sin(time * pulseFreq) * (0.15 + (1 - healthPct) * 0.1);
   const radius = TILE_SIZE * 0.6 * basePulse;
 
-  const coreColor = lerpColor("#cc2233", "#00ffc8", healthPct);
+  const coreColor = lerpColor("#ff1133", "#00ffc8", healthPct);
 
+  // Aura de Alerta Perimetral em caso de perigo crítico (< 40% HP)
+  if (healthPct < 0.4) {
+    const alertPulse = 0.4 + Math.sin(time * 0.012) * 0.4;
+    ctx.shadowColor = "#ff0033";
+    ctx.shadowBlur = 35;
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE_SIZE * 1.8, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 0, 51, ${alertPulse * (0.4 - healthPct)})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+  }
+
+  // Brilho Principal do Core
   ctx.shadowColor = coreColor;
-  ctx.shadowBlur = 20 + (1 - healthPct) * 15;
+  ctx.shadowBlur = 20 + (1 - healthPct) * 25;
 
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.fillStyle = coreColor;
-  ctx.globalAlpha = 0.8;
+  ctx.globalAlpha = 0.85;
   ctx.fill();
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
 
+  // Anel Interno de Reator
   ctx.beginPath();
   ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + healthPct * 0.4})`;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + healthPct * 0.5})`;
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  const rotSpeed = core.overclockActive ? 0.008 : 0.002;
+  // Aletas de Rotação Magnética
+  const rotSpeed = core.overclockActive ? 0.01 : 0.002 + (1 - healthPct) * 0.004;
   const rot = time * rotSpeed;
   ctx.save();
   ctx.translate(cx, cy);
@@ -42,44 +62,37 @@ export function drawCore(
     ctx.rotate(Math.PI / 2);
     ctx.beginPath();
     ctx.moveTo(radius * 0.7, 0);
-    ctx.lineTo(radius * 1.1, 0);
-    ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
-    ctx.lineWidth = 1;
+    ctx.lineTo(radius * 1.25, 0);
+    ctx.strokeStyle = healthPct < 0.3 ? `rgba(255, 68, 68, 0.8)` : `rgba(255, 255, 255, 0.5)`;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
   }
   ctx.restore();
 
+  // Escudo
   if (core.shieldPoints > 0) {
-    const shieldPulse = 0.6 + Math.sin(time * 0.005) * 0.4;
-    const shieldRadius = TILE_SIZE * 1.1;
+    const shieldPulse = 0.6 + Math.sin(time * 0.006) * 0.4;
+    const shieldRadius = TILE_SIZE * 1.15;
 
     ctx.shadowColor = COL.coreShieldGlow;
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    ctx.arc(cx, cy, shieldRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(68, 136, 255, ${0.5 * shieldPulse})`;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    ctx.font = "7px monospace";
-    ctx.fillStyle = COL.coreShield;
-    ctx.textAlign = "center";
-    ctx.fillText(
-      `⛨${Math.ceil(core.shieldPoints)}`,
-      cx,
-      cy + shieldRadius + 10,
-    );
-  }
-
-  if (core.overclockActive) {
-    const ocPulse = 0.5 + Math.sin(time * 0.01) * 0.5;
-    ctx.shadowColor = COL.coreOverclock;
     ctx.shadowBlur = 15;
     ctx.beginPath();
-    ctx.arc(cx, cy, TILE_SIZE * 1.35, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(255, 170, 0, ${0.4 * ocPulse})`;
-    ctx.lineWidth = 1.5;
+    ctx.arc(cx, cy, shieldRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(68, 136, 255, ${0.6 * shieldPulse})`;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Overclock FX
+  if (core.overclockActive) {
+    const ocPulse = 0.5 + Math.sin(time * 0.012) * 0.5;
+    ctx.shadowColor = COL.coreOverclock;
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE_SIZE * 1.4, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 170, 0, ${0.6 * ocPulse})`;
+    ctx.lineWidth = 2;
     ctx.setLineDash([4, 4]);
     ctx.stroke();
     ctx.setLineDash([]);

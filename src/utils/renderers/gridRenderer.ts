@@ -8,7 +8,16 @@ export function drawGrid(
   saturation: number,
   time: number
 ): void {
-  ctx.strokeStyle = COL.gridLine;
+  // Cor das linhas do Grid reage à saturação (Seguro -> Tensão -> Colapso)
+  if (saturation > 0.6) {
+    const pulse = 0.2 + Math.sin(time * 0.008) * 0.15;
+    ctx.strokeStyle = `rgba(220, 38, 38, ${pulse})`;
+  } else if (saturation > 0.3) {
+    ctx.strokeStyle = "rgba(212, 160, 23, 0.25)";
+  } else {
+    ctx.strokeStyle = COL.gridLine;
+  }
+
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= GRID_SIZE; i++) {
     const pos = i * TILE_SIZE;
@@ -38,12 +47,14 @@ export function drawGrid(
       ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
       ctx.shadowBlur = 0;
     } else if (node.state === "unstable") {
-      const flicker = 0.5 + Math.sin(time * 0.006 + i * 0.3) * 0.5;
+      // Nó instável pisca com mais urgência quando a saturação está alta
+      const flickerSpeed = saturation > 0.5 ? 0.012 : 0.006;
+      const flicker = 0.5 + Math.sin(time * flickerSpeed + i * 0.3) * 0.5;
       ctx.fillStyle = `rgba(212, 160, 23, ${0.25 * flicker})`;
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-      ctx.strokeStyle = `rgba(212, 160, 23, ${0.15 * flicker})`;
-      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = `rgba(212, 160, 23, ${0.25 * flicker})`;
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(px, py);
       ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE);
@@ -52,7 +63,7 @@ export function drawGrid(
       ctx.stroke();
     } else if (node.purgeImmunityMs > 0) {
       const fade = Math.min(1, node.purgeImmunityMs / 1500);
-      ctx.fillStyle = `rgba(0, 255, 180, ${0.08 * fade})`;
+      ctx.fillStyle = `rgba(0, 255, 180, ${0.12 * fade})`;
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
 
@@ -62,19 +73,21 @@ export function drawGrid(
     }
   }
 
-  // Scanline Radar
-  const scanCycle = 4000;
+  // Scanline Radar Dinâmico por nível de Perigo
+  const scanCycle = saturation > 0.5 ? 2000 : 4000;
   const scanProgress = (time % scanCycle) / scanCycle;
   const scanY = scanProgress * CANVAS_SIZE;
   
-  if (saturation > 0.4) {
-    const pulse = 0.15 + Math.sin(time * 0.01) * 0.1;
+  if (saturation > 0.6) {
+    const pulse = 0.3 + Math.sin(time * 0.01) * 0.2;
     ctx.fillStyle = `rgba(220, 38, 38, ${pulse})`;
+  } else if (saturation > 0.3) {
+    ctx.fillStyle = "rgba(245, 158, 11, 0.15)";
   } else {
-    ctx.fillStyle = "rgba(88, 224, 216, 0.06)";
+    ctx.fillStyle = "rgba(88, 224, 216, 0.08)";
   }
   
-  ctx.fillRect(0, scanY, CANVAS_SIZE, 1);
+  ctx.fillRect(0, scanY, CANVAS_SIZE, 1.5);
 }
 
 export function drawHoverPreview(
@@ -105,7 +118,6 @@ export function drawHoverPreview(
     const cableLengthLevel = state.upgrades.get("cable_length")?.level ?? 0;
     const reach = CABLE_LENGTHS[cableLengthLevel];
     
-    // Reduces opacity as the radius grows (max reach ~22)
     const opacity = Math.max(0.04, 0.18 - (reach * 0.006));
 
     ctx.beginPath();
