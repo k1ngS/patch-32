@@ -343,3 +343,64 @@ export function drawCentralMarquee(ctx: CanvasRenderingContext2D, state: GameSta
     }
   }
 }
+
+export function drawEmpShockwave(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  time: number
+): void {
+  if (!state.empShockwaveActive || state.empRadius <= 0) return;
+
+  const cx = CANVAS_SIZE / 2;
+  const cy = CANVAS_SIZE / 2;
+  const radius = state.empRadius;
+  const maxRadius = CANVAS_SIZE * 0.75;
+  const progress = Math.min(1, radius / maxRadius);
+  const alpha = 1 - progress * 0.7;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  // Glowing Cyan/White Outer Ring
+  ctx.shadowColor = "#00e5ff";
+  ctx.shadowBlur = 25;
+  ctx.strokeStyle = `rgba(0, 229, 255, ${alpha})`;
+  ctx.lineWidth = Math.max(2, 10 * (1 - progress));
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // White Inner Rim
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+  ctx.lineWidth = Math.max(1, 4 * (1 - progress));
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Radial Gradient Glow
+  const grad = ctx.createRadialGradient(cx, cy, Math.max(0, radius - 30), cx, cy, radius);
+  grad.addColorStop(0, "rgba(0, 229, 255, 0)");
+  grad.addColorStop(0.8, `rgba(0, 229, 255, ${alpha * 0.25})`);
+  grad.addColorStop(1, `rgba(255, 255, 255, ${alpha * 0.4})`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Disintegration Particles along shockwave edge
+  const particleCount = 28;
+  for (let i = 0; i < particleCount; i++) {
+    const angle = (i / particleCount) * Math.PI * 2 + time * 0.002;
+    const rOffset = Math.sin(i * 3.7 + time * 0.005) * 12;
+    const px = cx + Math.cos(angle) * (radius + rOffset);
+    const py = cy + Math.sin(angle) * (radius + rOffset);
+
+    ctx.fillStyle = i % 2 === 0 ? "#00e5ff" : "#ffffff";
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(px, py, Math.random() * 2.5 + 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}

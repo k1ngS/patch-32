@@ -25,18 +25,18 @@ export function SystemOverrideOverlay() {
         {/* TOP ALERT HEADER */}
         <div className="flex items-center gap-2 text-red-500 font-bold text-xs sm:text-sm tracking-widest uppercase bg-red-950/70 px-3.5 py-1.5 border border-red-800 shadow-inner">
           <span className="animate-ping">⚠️</span>
-          [ WARNING: CRITICAL KERNEL BREACH DETECTED ]
+          [ WARNING: RANSOMWARE INFILTRATION DETECTED ]
         </div>
 
         {/* PRIMARY OVERRIDE TITLE */}
-        <h2 className="text-lg sm:text-xl font-extrabold text-red-400 tracking-wider uppercase drop-shadow-[0_0_10px_rgba(239,68,68,0.6)]">
-          EMERGENCY SYSTEM OVERRIDE IN PROGRESS
+        <h2 className="text-lg sm:text-xl font-extrabold text-red-400 tracking-wider uppercase drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">
+          EMERGENCY KERNEL OVERRIDE
         </h2>
 
         {/* EXACT REQUIRED MESSAGE */}
         <div className="w-full bg-black/90 p-4 border border-red-950 text-left space-y-2">
           <p className="text-xs sm:text-sm font-semibold text-red-200 leading-relaxed font-mono">
-            User privileges temporarily suspended for emergency system override.
+            Kernel Auto-Defense Protocol engaged. User privileges suspended.
           </p>
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest">
             [ EXECUTING EMERGENCY_PURGE.EXE // DISPATCHING DEFENSE MATRIX ]

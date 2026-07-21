@@ -115,6 +115,7 @@ export const PARASITE_CONFIGS: Record<ParasiteVariant, ParasiteConfig> = {
   pulse_worm: { variant: 'pulse_worm', speed: 1, hp: 30, bitsDrop: 2, coreDamage: 10 },
   siege_bloc: { variant: 'siege_bloc', speed: 2, hp: 65, bitsDrop: 8, coreDamage: 30 },
   storm_flitter: { variant: 'storm_flitter', speed: 0.5, hp: 20, bitsDrop: 3, coreDamage: 5 },
+  ransomware_boss: { variant: 'ransomware_boss', speed: 1.5, hp: 800, bitsDrop: 50, coreDamage: 100 },
 };
 
 // ── Spawn System Data ───────────────────────────────────────

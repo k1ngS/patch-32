@@ -16,6 +16,7 @@ import {
   drawPhaseOverlay,
   drawGridBrackets,
   drawCentralMarquee,
+  drawEmpShockwave,
 } from "@/utils/renderers/overlayRenderer";
 import { drawParasites } from "@/utils/renderers/parasiteRenderer";
 
@@ -74,6 +75,7 @@ export default function GridCanvas() {
       drawParasites(ctx!, state.parasites, state.elapsedMs, timestamp, state.infectionAccumulatorMs);
       drawHoverPreview(ctx!, state, timestamp, mouseGridRef.current);
       drawVisualEvents(ctx!, state.visualEvents, timestamp);
+      drawEmpShockwave(ctx!, state, timestamp);
 
       ctx!.restore();
 

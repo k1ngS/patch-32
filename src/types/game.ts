@@ -57,13 +57,17 @@ export interface NeonCable {
 }
 
 export interface EmitterNode {
-  readonly id: number;
+  readonly id: number | string;
   readonly pos: GridPosition;
+  x?: number;
+  y?: number;
   length: number;
   state: "ready" | "cooldown" | "booting" | "overheated";
   cooldownMs: number;
   shotsFired: number;
   isOverheated: boolean;
+  level?: number;
+  type?: string;
 }
 
 export interface VisualEvent {
@@ -76,7 +80,7 @@ export interface VisualEvent {
   readonly bornAt: number;
 }
 
-export type ParasiteVariant = "pulse_worm" | "siege_bloc" | "storm_flitter";
+export type ParasiteVariant = "pulse_worm" | "siege_bloc" | "storm_flitter" | "ransomware_boss";
 
 export interface Parasite {
   readonly id: number;
@@ -227,6 +231,8 @@ export interface GameState {
   inputLockRemainingMs: number;
   sectorBanner: SectorBannerInfo | null;
   dronePulseCooldownMs: number;
+  empShockwaveActive: boolean;
+  empRadius: number;
 }
 
 export interface GameActions {
@@ -261,7 +267,8 @@ export interface GameActions {
   showOsToast: (msg: string) => void;
   clearOsToast: () => void;
   triggerPrivilegeLockEvent: () => void;
-  rebootEmitter: (emitterId: number) => void;
+  executeEmergencyOverrideSequence: () => void;
+  rebootEmitter: (emitterId: number | string) => void;
   fireDronePulse: () => void;
   showSectorBanner: (title: string, subtitle: string, isWarning?: boolean) => void;
   clearSectorBanner: () => void;

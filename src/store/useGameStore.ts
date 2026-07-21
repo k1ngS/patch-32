@@ -10,6 +10,7 @@ import {
   CABLE_EXTEND_SPEED,
   CABLE_LENGTHS,
   CABLE_RETRACT_SPEED,
+  CANVAS_SIZE,
   COMBO_MAX_MULTIPLIER,
   COMBO_MULTIPLIER_STEP,
   COMBO_WINDOW_MS,
@@ -168,6 +169,8 @@ function createInitialState(): GameState {
     inputLockRemainingMs: 0,
     sectorBanner: null,
     dronePulseCooldownMs: 0,
+    empShockwaveActive: false,
+    empRadius: 0,
   };
 }
 
@@ -264,8 +267,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Sector 03 (Gateway) 02:30 (150s) Fourth Wall Break System Override Event
     if ((newElapsed >= 150000 || (currentSectorIndex === 2 && saturation > 0.10)) && (!state.hasTriggeredOverride && !state.hasTriggeredLockEvent)) {
       setTimeout(() => {
-        get().triggerPrivilegeLockEvent();
+        get().executeEmergencyOverrideSequence();
       }, 0);
+    }
+
+    // EMP Shockwave expansion animation tick
+    if (state.empShockwaveActive) {
+      const maxRadius = CANVAS_SIZE * 0.75;
+      const newRadius = state.empRadius + (dt * 0.3);
+      if (newRadius >= maxRadius) {
+        set({ empShockwaveActive: false, empRadius: maxRadius });
+      } else {
+        set({ empRadius: newRadius });
+      }
     }
 
     if (saturation > 0.5) {
@@ -1011,7 +1025,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setPulsePressed: () =>
     set((s) => ({ input: { ...s.input, pulseJustPressed: true } })),
 
-  rebootEmitter: (emitterId: number) => {
+  rebootEmitter: (emitterId: number | string) => {
     const state = get();
     const nodeIndex = state.emitterNodes.findIndex((e) => e.id === emitterId);
     if (nodeIndex === -1) return;
@@ -1124,72 +1138,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearOsToast: () => set({ osToastMessage: null }),
 
   triggerPrivilegeLockEvent: () => {
+    get().executeEmergencyOverrideSequence();
+  },
+
+  executeEmergencyOverrideSequence: () => {
     const state = get();
     if (state.hasTriggeredOverride) return;
 
-    // 1. Trigger flags & Alert modal text
+    // 1. Trigger flags, overlay banner & EMP shockwave activation
     set({
       hasTriggeredOverride: true,
       hasTriggeredLockEvent: true,
       isOverrideActive: true,
       isPrivilegeSuspended: true,
       isInputLocked: true,
-      inputLockRemainingMs: 3500,
-      osAlertBanner: "[ WARNING: CRITICAL KERNEL BREACH DETECTED ]",
+      inputLockRemainingMs: 4000,
+      empShockwaveActive: true,
+      empRadius: 0,
+      osAlertBanner: "[ WARNING: RANSOMWARE INFILTRATION DETECTED ]",
     });
 
-    state.addLog("HALT", "[CRITICAL] USER PRIVILEGES SUSPENDED BY KERNEL. Executing Emergency_Purge.exe...");
-    state.addLog("BREACH", "User privileges temporarily suspended for emergency system override.");
+    state.addLog("HALT", "[CRITICAL] RANSOMWARE INFILTRATION DETECTED. Executing Emergency_Purge.exe...");
+    state.addLog("BREACH", "Kernel Auto-Defense Protocol engaged. User privileges suspended.");
     audioEngine.playSfx("breach");
 
-    // 2. Position 4 strategic Emitters around Kernel in matrix formation
-    const matrixPositions = [
-      { x: 14, y: 14 },
-      { x: 18, y: 14 },
-      { x: 14, y: 18 },
-      { x: 18, y: 18 },
+    // 2. FORCED EMITTERS INJECTION (Direct insertion into state.emitterNodes)
+    const currentNodes = [...state.emitterNodes];
+    const forcedEmitters: EmitterNode[] = [
+      { id: 'override-1', pos: { x: 13, y: 13 }, x: 13, y: 13, level: 3, type: 'OVERCHARGED', length: 6, state: "ready", cooldownMs: 0, shotsFired: 0, isOverheated: false },
+      { id: 'override-2', pos: { x: 18, y: 13 }, x: 18, y: 13, level: 3, type: 'OVERCHARGED', length: 6, state: "ready", cooldownMs: 0, shotsFired: 0, isOverheated: false },
+      { id: 'override-3', pos: { x: 13, y: 18 }, x: 13, y: 18, level: 3, type: 'OVERCHARGED', length: 6, state: "ready", cooldownMs: 0, shotsFired: 0, isOverheated: false },
+      { id: 'override-4', pos: { x: 18, y: 18 }, x: 18, y: 18, level: 3, type: 'OVERCHARGED', length: 6, state: "ready", cooldownMs: 0, shotsFired: 0, isOverheated: false },
     ];
 
-    const currentNodes = [...state.emitterNodes];
-    let nextId = state.nextEmitterId;
-
-    for (const pos of matrixPositions) {
-      if (!currentNodes.some((e) => e.pos.x === pos.x && e.pos.y === pos.y)) {
-        currentNodes.push({
-          id: nextId++,
-          pos,
-          length: 6,
-          state: "ready",
-          cooldownMs: 0,
-          shotsFired: 0,
-          isOverheated: false,
-        });
+    for (const emitter of forcedEmitters) {
+      if (!currentNodes.some((e) => e.pos.x === emitter.pos.x && e.pos.y === emitter.pos.y)) {
+        currentNodes.push(emitter);
       }
     }
 
-    // 3. Clear central infection around Kernel
+    // 3. DISPARO DA ONDA DE LIMPEZA: Clear grid infection & zero parasites
     const newGrid = [...state.grid];
-    const center = CORE_POS;
-
-    for (let dx = -4; dx <= 4; dx++) {
-      for (let dy = -4; dy <= 4; dy++) {
-        const gx = center.x + dx;
-        const gy = center.y + dy;
-        if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
-          const idx = posToIndex(gx, gy);
-          const cell = newGrid[idx];
-          if (cell && cell.state !== "clean" && !cell.isCoreNode && !cell.isDeadMemory) {
-            newGrid[idx] = { ...cell, state: "clean", infectionLevel: 0 };
-          }
-        }
-      }
-    }
-
-    // Damage parasites in central matrix area
-    for (const p of state.parasites) {
-      if (Math.abs(p.pos.x - center.x) <= 4 && Math.abs(p.pos.y - center.y) <= 4) {
-        p.hp -= 80;
-        if (p.hp <= 0) p.markedForRemoval = true;
+    for (let i = 0; i < newGrid.length; i++) {
+      const cell = newGrid[i];
+      if (cell && cell.state !== "clean" && !cell.isCoreNode && !cell.isDeadMemory) {
+        newGrid[i] = { ...cell, state: "clean", infectionLevel: 0 };
       }
     }
 
@@ -1198,9 +1191,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       {
         id: state.nextVisualEventId,
         type: "emp_pulse" as const,
-        x: center.x,
-        y: center.y,
-        text: "⚡ EMERGENCY_PURGE.EXE DISPATCHED",
+        x: CORE_POS.x,
+        y: CORE_POS.y,
+        text: "⚡ OVERCHARGE DEFENSE MATRIX DISPATCHED",
         bornAt: state.elapsedMs,
       },
     ];
@@ -1208,22 +1201,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       grid: newGrid,
       emitterNodes: currentNodes,
-      nextEmitterId: nextId,
+      parasites: [], // Zero common parasites array
       visualEvents: newVisualEvents,
       nextVisualEventId: state.nextVisualEventId + 1,
-      trauma: 0.8,
+      trauma: 0.9,
     });
 
-    // 4. After 3.5 seconds, restore privileges & log exact required text
+    // 4. SPAWN DO RANSOMWARE E RESTAURAÇÃO DE PRIVILÉGIOS (Após 4 segundos / aos 02:40)
     setTimeout(() => {
+      const currentState = get();
+      const bossParasites: Parasite[] = [
+        {
+          id: currentState.nextParasiteId,
+          pos: { x: 16, y: 1 }, // North perimeter
+          moveDir: { x: 0, y: 1 },
+          speed: 1.5,
+          infectionPower: 5,
+          variant: "ransomware_boss",
+          hp: 800,
+          markedForRemoval: false,
+          auraSpeedBuff: 0,
+        },
+      ];
+
       set({
+        parasites: [...currentState.parasites, ...bossParasites],
+        nextParasiteId: currentState.nextParasiteId + 1,
         isOverrideActive: false,
         isInputLocked: false,
         isPrivilegeSuspended: false,
         osAlertBanner: null,
       });
-      get().addLog("PATCH", "[SYSTEM] Threat neutralized. User privileges restored.");
-      get().showOsToast("Threat neutralized. User privileges restored.");
-    }, 3500);
+
+      currentState.addLog("PATCH", "[SYSTEM] THREAT NEUTRALIZED. PRIVILEGES RESTORED. ENGAGE RANSOMWARE!");
+      currentState.showOsToast("[SYSTEM] THREAT NEUTRALIZED. PRIVILEGES RESTORED. ENGAGE RANSOMWARE!");
+    }, 4000);
   },
 }));

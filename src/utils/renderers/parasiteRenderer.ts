@@ -35,6 +35,9 @@ export function drawParasites(
       case "storm_flitter":
         drawStormFlitter(ctx, px, py, p, progression, time);
         break;
+      case "ransomware_boss":
+        drawRansomwareBoss(ctx, px, py, p, progression, time);
+        break;
     }
   }
 }
@@ -189,6 +192,70 @@ function drawStormFlitter(
       ctx.stroke();
     }
   }
+
+  ctx.restore();
+}
+
+function drawRansomwareBoss(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  p: Parasite,
+  progression: number,
+  time: number
+): void {
+  const size = TILE_SIZE * 0.95;
+  const pulse = Math.sin(time * 0.01) * 0.15 + 1.0;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Outer Crimson Aura & Spikes
+  ctx.shadowColor = "#ff0055";
+  ctx.shadowBlur = 20 * pulse;
+
+  ctx.fillStyle = "#2a000a";
+  ctx.strokeStyle = "#ff0055";
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+  const spikeCount = 8;
+  for (let i = 0; i < spikeCount * 2; i++) {
+    const r = (i % 2 === 0 ? size : size * 0.5) * pulse;
+    const angle = (Math.PI / spikeCount) * i + time * 0.003;
+    const x = Math.cos(angle) * r;
+    const y = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Core Diamond
+  ctx.fillStyle = "#ff0055";
+  ctx.beginPath();
+  ctx.moveTo(0, -size * 0.4);
+  ctx.lineTo(size * 0.4, 0);
+  ctx.lineTo(0, size * 0.4);
+  ctx.lineTo(-size * 0.4, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Label & HP Bar
+  ctx.shadowBlur = 0;
+  ctx.font = "bold 9px monospace";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ff0055";
+  ctx.fillText("RANSOMWARE", 0, -size * 1.25);
+
+  // Health Bar
+  const hpPct = Math.max(0, p.hp / 800);
+  const barW = size * 1.8;
+  ctx.fillStyle = "rgba(0,0,0,0.8)";
+  ctx.fillRect(-barW / 2, -size * 1.05, barW, 4);
+  ctx.fillStyle = "#ff0055";
+  ctx.fillRect(-barW / 2, -size * 1.05, barW * hpPct, 4);
 
   ctx.restore();
 }
