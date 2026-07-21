@@ -29,10 +29,10 @@ export const CABLE_RETRACT_SPEED = 4.0;
 export const MAX_ACTIVE_CABLES = 3;
 
 // ── Emitter Nodes ─────────────────────────────────────────
-export const EMITTER_COST = 15;
-export const EMITTER_FIRST_FREE = 1;
+export const EMITTER_COST = 12;
+export const EMITTER_FIRST_FREE = 2;
 export const MAX_EMITTERS = 6;
-export const EMITTER_COOLDOWN_MS = 1200;
+export const EMITTER_COOLDOWN_MS = 1000;
 export const EMITTER_BOOT_MS = 5000;
 export const VISUAL_EVENT_TTL_MS = 500;
 
@@ -57,7 +57,7 @@ export const CORE_MAX_HEALTH = 2000;
 export const PURGE_RADIUSES = [1, 2, 3, 4, 6]; // T0 to T4
 export const PURGE_CHAIN_BASE_PROBABILITIES = [0, 0.25, 0.50, 0.75, 1.0]; // T0 to T4
 export const PURGE_CHAIN_DECAY_PER_CELL = 0.30;
-export const PURGE_PARASITE_DAMAGE = 50; // Instakill most except siege bloc which needs 2 or overclock
+export const PURGE_PARASITE_DAMAGE = 60; // Upgraded purge damage
 
 // ── Scoring & Economy ───────────────────────────────────────
 export const SCORE_PER_PURGE = 10;
@@ -112,9 +112,9 @@ export interface ParasiteConfig {
 }
 
 export const PARASITE_CONFIGS: Record<ParasiteVariant, ParasiteConfig> = {
-  pulse_worm: { variant: 'pulse_worm', speed: 1, hp: 30, bitsDrop: 1, coreDamage: 10 },
-  siege_bloc: { variant: 'siege_bloc', speed: 2, hp: 80, bitsDrop: 6, coreDamage: 35 },
-  storm_flitter: { variant: 'storm_flitter', speed: 0.5, hp: 20, bitsDrop: 2, coreDamage: 5 },
+  pulse_worm: { variant: 'pulse_worm', speed: 1, hp: 30, bitsDrop: 2, coreDamage: 10 },
+  siege_bloc: { variant: 'siege_bloc', speed: 2, hp: 65, bitsDrop: 8, coreDamage: 30 },
+  storm_flitter: { variant: 'storm_flitter', speed: 0.5, hp: 20, bitsDrop: 3, coreDamage: 5 },
 };
 
 // ── Spawn System Data ───────────────────────────────────────
@@ -132,16 +132,16 @@ export const SECTOR_CONFIGS = [
   // Sector 02: Cache (60-120s) - Dead memory is injected at start of this sector
   {
     duration: 60000,
-    spawnInterval: 1500,
-    spawnsPerInterval: 1.2,
-    composition: { pulse_worm: 0.55, storm_flitter: 0.25, siege_bloc: 0.20 },
+    spawnInterval: 1800,
+    spawnsPerInterval: 1.0,
+    composition: { pulse_worm: 0.60, storm_flitter: 0.25, siege_bloc: 0.15 },
     borders: { N: 0.35, E: 0.25, S: 0.25, W: 0.15, NE: 0, SE: 0, SW: 0, NW: 0 }
   },
   // Sector 03: Gateway (120-180s) - Aggressive spawn
   {
     duration: 60000,
-    spawnInterval: 800,
-    spawnsPerInterval: 1.5,
+    spawnInterval: 1200,
+    spawnsPerInterval: 1.3,
     composition: { pulse_worm: 0.25, storm_flitter: 0.35, siege_bloc: 0.40 },
     borders: { N: 0.125, E: 0.125, S: 0.125, W: 0.125, NE: 0.125, SE: 0.125, SW: 0.125, NW: 0.125 } 
   }

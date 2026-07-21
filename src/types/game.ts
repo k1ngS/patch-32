@@ -60,13 +60,15 @@ export interface EmitterNode {
   readonly id: number;
   readonly pos: GridPosition;
   length: number;
-  state: "ready" | "cooldown" | "booting";
+  state: "ready" | "cooldown" | "booting" | "overheated";
   cooldownMs: number;
+  shotsFired: number;
+  isOverheated: boolean;
 }
 
 export interface VisualEvent {
   readonly id: number;
-  readonly type: "purge" | "first_kill" | "core_damage" | "first_bits";
+  readonly type: "purge" | "first_kill" | "core_damage" | "first_bits" | "emp_pulse" | "reboot";
   readonly x: number;
   readonly y: number;
   readonly bits?: number;
@@ -151,6 +153,7 @@ export interface InputState {
   linkJustPressed: boolean;
   linkJustReleased: boolean;
   overclockJustPressed: boolean;
+  pulseJustPressed: boolean;
 }
 
 export interface LogEntry {
@@ -169,6 +172,12 @@ export type GamePhase =
   | "gameover";
 
 export type ActiveScreen = "menu" | "tutorial" | "game" | "gameover";
+
+export interface SectorBannerInfo {
+  title: string;
+  subtitle: string;
+  isWarning?: boolean;
+}
 
 export interface GameState {
   activeScreen: ActiveScreen;
@@ -207,6 +216,15 @@ export interface GameState {
   saturation: number;
   firstKillDone: boolean;
   firstBitsTimeMs: number;
+  hasAppliedPatch: boolean;
+  hasTriggeredLockEvent: boolean;
+  isPrivilegeSuspended: boolean;
+  osAlertBanner: string | null;
+  osToastMessage: string | null;
+  isInputLocked: boolean;
+  inputLockRemainingMs: number;
+  sectorBanner: SectorBannerInfo | null;
+  dronePulseCooldownMs: number;
 }
 
 export interface GameActions {
@@ -220,6 +238,7 @@ export interface GameActions {
   setMoveVector: (x: number, y: number) => void;
   setLinkHeld: (held: boolean) => void;
   setOverclockPressed: () => void;
+  setPulsePressed: () => void;
   processInputEdges: () => void;
   moveDrone: (deltaMs: number) => void;
   snapDroneToGrid: () => void;
@@ -237,6 +256,13 @@ export interface GameActions {
   updateCombo: (deltaMs: number) => void;
   placeEmitter: (gridX: number, gridY: number) => boolean;
   addLog: (type: LogEntry["type"], message: string) => void;
+  showOsToast: (msg: string) => void;
+  clearOsToast: () => void;
+  triggerPrivilegeLockEvent: () => void;
+  rebootEmitter: (emitterId: number) => void;
+  fireDronePulse: () => void;
+  showSectorBanner: (title: string, subtitle: string, isWarning?: boolean) => void;
+  clearSectorBanner: () => void;
 }
 
 export type GameStore = GameState & GameActions;

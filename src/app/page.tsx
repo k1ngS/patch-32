@@ -10,6 +10,7 @@ import { TopHUD } from "@/components/hud/TopHUD";
 import { ActionBar } from "@/components/hud/ActionBar";
 import { LogTerminal } from "@/components/hud/LogTerminal";
 import { TelemetryPanel } from "@/components/hud/TelemetryPanel";
+import { SystemAlertBanner } from "@/components/hud/SystemAlertBanner";
 
 import React, { useState, useEffect } from "react";
 
@@ -34,15 +35,27 @@ export default function Home() {
     setShowTelemetry((prev) => !prev);
   };
 
-  // Border & breathing styles derived from FrameConsumer Machine Stance
+  // Border & breathing styles derived from FrameConsumer SystemStance
   let frameBorderColor = "border-zinc-900";
-  let statusTagColor = "text-zinc-600 border-zinc-800";
-  let statusText = "ISOLATED // NOMINAL";
+  let statusTagColor = "text-zinc-600 border-zinc-800 bg-black";
+  let statusText = "SYSTEM // STABLE";
+  let panelTransition = "transition-all duration-75";
 
-  if (machineStance === "anxious") {
+  if (machineStance === "under_load") {
     frameBorderColor = "border-amber-600/80 shadow-[0_0_15px_rgba(217,119,6,0.15)]";
     statusTagColor = "text-amber-500 border-amber-800/80 bg-amber-950/20";
-    statusText = "SYSTEM_STRESS // ELEVATED";
+    statusText = "SYSTEM_LOAD // ELEVATED";
+    panelTransition = "transition-all duration-200 ease-out"; // 100-200ms transition delay on bars/panels
+  } else if (machineStance === "critical") {
+    frameBorderColor = "border-red-600/90 shadow-[0_0_30px_rgba(220,38,38,0.4)] animate-pulse";
+    statusTagColor = "text-red-500 border-red-800 bg-red-950/40 animate-pulse";
+    statusText = "KERNEL_CRITICAL // EMERGENCY";
+    panelTransition = "transition-all duration-100";
+  } else if (machineStance === "recovery") {
+    frameBorderColor = "border-emerald-600/80 shadow-[0_0_20px_rgba(16,185,129,0.3)]";
+    statusTagColor = "text-emerald-400 border-emerald-800 bg-emerald-950/30";
+    statusText = "KERNEL_RECOVERY // STABILIZING";
+    panelTransition = "transition-colors duration-500 ease-in-out"; // Smooth 300-500ms relief transition
   } else if (machineStance === "overclock") {
     frameBorderColor = "border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.3)]";
     statusTagColor = "text-amber-300 border-amber-500 bg-amber-950/40";
@@ -54,19 +67,20 @@ export default function Home() {
   }
 
   return (
-    <main className={`w-full h-[100dvh] flex flex-col bg-[#020202] text-[#e0e0e0] font-mono select-none overflow-hidden p-0 sm:p-1 border-2 transition-colors duration-500 ${frameBorderColor}`}>
-      {/* TELAS DE MENU E TUTORIAL */}
+    <main className={`w-full h-[100dvh] flex flex-col bg-[#020202] text-[#e0e0e0] font-mono select-none overflow-hidden p-0 sm:p-1 border-2 ${panelTransition} ${frameBorderColor}`}>
+      {/* TELAS DE MENU, TUTORIAL E GAMEOVER */}
       {activeScreen === "menu" && <MainMenu />}
       {activeScreen === "tutorial" && <TutorialScreen />}
+      {activeScreen === "gameover" && <GameOverReport />}
 
-      {/* TELA DE JOGO / GAMEOVER */}
+      {/* TELA DE JOGO */}
       {(activeScreen === "game" || activeScreen === "gameover") && (
         <div className="w-full h-full flex flex-col min-h-0 bg-black relative">
           
           {/* MACHINE REASONING / VITAL HEADER */}
           <div className="w-full border-b border-zinc-900 bg-[#050508] flex justify-between items-center px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">
             <span className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 ${machineStance === "collapse" ? "bg-red-500 animate-ping" : machineStance === "anxious" ? "bg-amber-500 animate-pulse" : "bg-cyan-500"}`}></span>
+              <span className={`w-1.5 h-1.5 ${machineStance === "collapse" || machineStance === "critical" ? "bg-red-500 animate-ping" : machineStance === "under_load" ? "bg-amber-500 animate-pulse" : machineStance === "recovery" ? "bg-emerald-400 animate-pulse" : "bg-cyan-500"}`}></span>
               [PATCH32 // KERNEL APPARATUS]
             </span>
             <span className={`px-1.5 py-0.5 border font-bold ${statusTagColor}`}>
@@ -118,9 +132,7 @@ export default function Home() {
                 }}
               >
                 <GridCanvas />
-                
-                {/* OVERLAY DE FIM DE JOGO */}
-                {activeScreen === "gameover" && <GameOverReport />}
+                <SystemAlertBanner />
               </section>
             </div>
 

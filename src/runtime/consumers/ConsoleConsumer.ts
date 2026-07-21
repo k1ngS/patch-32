@@ -62,10 +62,13 @@ class ConsoleConsumerStore {
         this.pushLog("INFO", `[SECTOR] // ISOLATION SECTOR 0${sec} ACTIVE`, t);
         break;
       case "CORE_HEALTH_LOW":
-        this.pushLog("BREACH", "[WARN] // CONTAINMENT INTEGRITY DEGRADING", t);
+        this.pushLog("BREACH", "[WARN] // CONTAINMENT INTEGRITY DEGRADING // Kernel latency detected...", t);
         break;
       case "CORE_HEALTH_CRITICAL":
-        this.pushLog("BREACH", "[ALERT] // CRITICAL KERNEL INTEGRITY FAILURE", t);
+        this.pushLog("BREACH", "[ALERT] // CRITICAL KERNEL INTEGRITY FAILURE // System in Critical state", t);
+        break;
+      case "CORE_HEALTH_NORMAL":
+        this.pushLog("PATCH", "[SYS_RECOVERY] // KERNEL PRESSURE STABILIZED // System restored to Stable", t);
         break;
       case "OVERCLOCK_STARTED":
         this.pushLog("PATCH", "[POWER] // EMERGENCY OVERRIDE ENGAGED", t);
@@ -78,7 +81,7 @@ class ConsoleConsumerStore {
         this.pushLog("PATCH", `[DRIVER] // HARDWARE ${modId} MOUNTED // BUS OK`, t);
         break;
       case "MEMORY_CORRUPTION_ELEVATED":
-        this.pushLog("BREACH", "[MEM_AUDIT] // ELEVATED CORRUPTION DETECTED", t);
+        this.pushLog("BREACH", "[MEM_AUDIT] // ELEVATED CORRUPTION DETECTED // Memory pressure increasing...", t);
         break;
       case "SYSTEM_HEARTBEAT_TICK":
         const heartLogs = [

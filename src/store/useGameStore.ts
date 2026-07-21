@@ -140,6 +140,7 @@ function createInitialState(): GameState {
       linkJustPressed: false,
       linkJustReleased: false,
       overclockJustPressed: false,
+      pulseJustPressed: false,
     },
     activeEntityCount: 0,
     syntheticNeighborIndex: 0,
@@ -156,6 +157,15 @@ function createInitialState(): GameState {
     saturation: 0,
     firstKillDone: false,
     firstBitsTimeMs: -1,
+    hasAppliedPatch: false,
+    hasTriggeredLockEvent: false,
+    isPrivilegeSuspended: false,
+    osAlertBanner: null,
+    osToastMessage: null,
+    isInputLocked: false,
+    inputLockRemainingMs: 0,
+    sectorBanner: null,
+    dronePulseCooldownMs: 0,
   };
 }
 
@@ -170,7 +180,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   ...createInitialState(),
 
   setActiveScreen: (screen) => set({ activeScreen: screen }),
-  initGame: () => set({ ...createInitialState(), phase: "ready" }),
+  initGame: () => set((state) => ({ ...createInitialState(), phase: "ready", hasAppliedPatch: state.hasAppliedPatch })),
   startGame: () =>
     set((state) => {
       if (state.phase === "ready") {
@@ -208,7 +218,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newRemaining = Math.max(0, GAME_DURATION_MS - newElapsed);
 
     if (newRemaining <= 0) {
-      set({ phase: "victory", elapsedMs: newElapsed, remainingMs: 0 });
+      set({ activeScreen: "gameover", phase: "victory", elapsedMs: newElapsed, remainingMs: 0, hasAppliedPatch: true });
       return;
     }
 
@@ -242,21 +252,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (logs.length > 30) logs.shift();
     };
 
-    // ── Global Saturation Damage
+    // ── Global Saturation Damage (excluding inert Dead Memory blocks)
     let corruptedCount = 0;
     for (let i = 0; i < grid.length; i++) {
-      if (grid[i].state === "corrupted") corruptedCount++;
+      if (grid[i].state === "corrupted" && !grid[i].isDeadMemory) corruptedCount++;
     }
     const saturation = corruptedCount / grid.length;
     
-    if (saturation > 0.4) {
-      if (saturation >= 0.7) {
+    // Sector 03 (Gateway) Fourth Wall Break Lock Event
+    if (currentSectorIndex === 2 && saturation > 0.10 && !state.hasTriggeredLockEvent) {
+      setTimeout(() => {
+        get().triggerPrivilegeLockEvent();
+      }, 0);
+    }
+
+    if (saturation > 0.5) {
+      if (saturation >= 0.8) {
         // Exponential meltdown
-        core.health -= (dt / 1000) * 100;
-        if (Math.random() < 0.05) pushLog("BREACH", "[CRITICAL] // CORE MELTDOWN IN PROGRESS");
+        core.health -= (dt / 1000) * 40;
+        if (Math.random() < 0.05) pushLog("BREACH", "[CRITICAL] // KERNEL MELTDOWN IN PROGRESS");
       } else {
         // Linear damage
-        core.health -= (dt / 1000) * 15;
+        core.health -= (dt / 1000) * 8;
       }
     }
 
@@ -312,6 +329,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let nextVisualEventId = state.nextVisualEventId;
 
     for (const emitter of emitterNodes) {
+      if (emitter.isOverheated || emitter.state === "overheated") continue;
+
       if (emitter.state === "booting") {
         emitter.cooldownMs -= dt;
         if (emitter.cooldownMs <= 0) {
@@ -506,9 +525,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
         bornAt: newElapsed,
       });
 
-      // Enter cooldown
-      emitter.state = "cooldown";
-      emitter.cooldownMs = EMITTER_COOLDOWN_MS;
+      // Increment shots fired & check overheat
+      emitter.shotsFired = (emitter.shotsFired || 0) + 1;
+      if (emitter.shotsFired >= 6) {
+        emitter.isOverheated = true;
+        emitter.state = "overheated";
+        pushLog("BREACH", `> EMITTER_${emitter.id} OVERHEATED // REBOOT REQUIRED`);
+      } else {
+        emitter.state = "cooldown";
+        emitter.cooldownMs = EMITTER_COOLDOWN_MS;
+      }
     }
 
     // ── Cables Tick
@@ -556,6 +582,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (sectorIndex > currentSectorIndex) {
       currentSectorIndex = sectorIndex;
       lastSectorChangeMs = newElapsed;
+      if (sectorIndex === 1) {
+        get().showSectorBanner("SECTOR 02: CACHE BREACH", "10 BLOCKS OF DEAD MEMORY DETECTED // INFESTATION RATE ELEVATED", true);
+        pushLog("BREACH", "> SECTOR 02 REACHED // CACHE MEMORY CORRUPTED");
+      } else if (sectorIndex === 2) {
+        get().showSectorBanner("SECTOR 03: GATEWAY INVASION", "CRITICAL INFESTATION SURGE // KERNEL INTEGRITY AT EXTREME RISK", true);
+        pushLog("BREACH", "> SECTOR 03 REACHED // GATEWAY INVASION IN PROGRESS");
+      }
     }
 
     // Trigger Sector 02 Dead Memory Injection
@@ -564,7 +597,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       sector02Triggered = true;
       let injected = 0;
       let attempts = 0;
-      while (injected < 20 && attempts < 200) {
+      while (injected < 10 && attempts < 200) {
         attempts++;
         const rx = Math.floor(Math.random() * GRID_SIZE);
         const ry = Math.floor(Math.random() * GRID_SIZE);
@@ -661,12 +694,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         for (let step = 0; step < moveAmount; step++) {
           if (p.variant === 'storm_flitter') {
-            const toCoreX = Math.sign(CORE_POS.x - p.pos.x);
-            const toCoreY = Math.sign(CORE_POS.y - p.pos.y);
-            const jitterX = Math.random() < 0.3 ? -toCoreX : toCoreX;
-            const jitterY = Math.random() < 0.3 ? -toCoreY : toCoreY;
-            const nx = p.pos.x + (jitterX || (Math.random() < 0.5 ? -1 : 1));
-            const ny = p.pos.y + (jitterY || (Math.random() < 0.5 ? -1 : 1));
+            const dx = CORE_POS.x - p.pos.x;
+            const dy = CORE_POS.y - p.pos.y;
+            let stepX = Math.sign(dx);
+            let stepY = Math.sign(dy);
+
+            // Apply erratic jitter only when further than 1 cell away from Kernel
+            if (Math.abs(dx) > 1 && Math.random() < 0.3) {
+              stepX = -stepX;
+            }
+            if (Math.abs(dy) > 1 && Math.random() < 0.3) {
+              stepY = -stepY;
+            }
+
+            const nx = p.pos.x + stepX;
+            const ny = p.pos.y + stepY;
             p.pos = {
               x: Math.max(0, Math.min(GRID_SIZE - 1, nx)),
               y: Math.max(0, Math.min(GRID_SIZE - 1, ny)),
@@ -688,7 +730,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             p.markedForRemoval = true;
             score.parasitesLeaked++;
             trauma = Math.min(1.0, trauma + 0.55);
-            pushLog("BREACH", "> WARNING // CORE BREACH INTERACTION DETECTED");
+            pushLog("BREACH", "> WARNING // KERNEL BREACH INTERACTION DETECTED");
             audioEngine.playSfx("breach");
             
             visualEvents.push({
@@ -753,7 +795,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     parasites = parasites.slice();
 
     if (core.health <= 0) {
-      pushLog("HALT", "CRITICAL FAILURE. Core compromised.");
+      pushLog("HALT", "CRITICAL FAILURE. Kernel compromised.");
       set({
         activeScreen: "gameover",
         phase: "gameover",
@@ -825,6 +867,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextLogId,
       trauma,
       freezeFrames,
+      sector02Triggered,
+      lastSectorChangeMs,
+      currentSectorIndex,
+      saturation,
       firstKillDone,
       firstBitsTimeMs,
     });
@@ -949,6 +995,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           length: CABLE_LENGTHS[cableLengthLevel],
           state: "ready",
           cooldownMs: 0,
+          shotsFired: 0,
+          isOverheated: false,
         },
       ],
       cables: currentCables,
@@ -956,5 +1004,135 @@ export const useGameStore = create<GameStore>((set, get) => ({
       score: { ...state.score, currency: state.score.currency - cost },
     });
     return true;
+  },
+
+  setPulsePressed: () =>
+    set((s) => ({ input: { ...s.input, pulseJustPressed: true } })),
+
+  rebootEmitter: (emitterId: number) => {
+    const state = get();
+    const nodeIndex = state.emitterNodes.findIndex((e) => e.id === emitterId);
+    if (nodeIndex === -1) return;
+
+    const updatedNodes = [...state.emitterNodes];
+    const targetNode = { ...updatedNodes[nodeIndex] };
+
+    targetNode.shotsFired = 0;
+    targetNode.isOverheated = false;
+    targetNode.state = "cooldown";
+    targetNode.cooldownMs = 500;
+    updatedNodes[nodeIndex] = targetNode;
+
+    const newVisualEvents = [
+      ...state.visualEvents,
+      {
+        id: state.nextVisualEventId,
+        type: "reboot" as const,
+        x: targetNode.pos.x,
+        y: targetNode.pos.y,
+        text: "[FLUSHED & REBOOTED]",
+        bornAt: state.elapsedMs,
+      },
+    ];
+
+    state.addLog("PATCH", `> EMITTER_${targetNode.id} THERMAL FLUSH COMPLETED. SYSTEM READY.`);
+
+    set({
+      emitterNodes: updatedNodes,
+      visualEvents: newVisualEvents,
+      nextVisualEventId: state.nextVisualEventId + 1,
+    });
+  },
+
+  fireDronePulse: () => {
+    const state = get();
+    if (state.dronePulseCooldownMs > 0 || state.isInputLocked || state.phase !== "playing") return;
+
+    const { drone, grid, parasites, addLog, visualEvents, nextVisualEventId } = state;
+    const center = drone.gridPos;
+
+    // Purge 3x3 cells around drone
+    let purgedCount = 0;
+    const newGrid = [...grid];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const gx = center.x + dx;
+        const gy = center.y + dy;
+        if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
+          const idx = posToIndex(gx, gy);
+          const cell = newGrid[idx];
+          if (cell && cell.state !== "clean" && !cell.isCoreNode && !cell.isDeadMemory) {
+            newGrid[idx] = { ...cell, state: "clean", infectionLevel: 0 };
+            purgedCount++;
+          }
+        }
+      }
+    }
+
+    // Damage parasites in 3x3
+    let killedCount = 0;
+    for (const p of parasites) {
+      if (Math.abs(p.pos.x - center.x) <= 1 && Math.abs(p.pos.y - center.y) <= 1) {
+        p.hp -= 60;
+        if (p.hp <= 0) {
+          p.markedForRemoval = true;
+          killedCount++;
+        }
+      }
+    }
+
+    addLog("PURGE", `> EMP PULSE FIRED @ (${center.x}, ${center.y}) // ${purgedCount} NODES CLEANSED`);
+
+    const newVisualEvents = [
+      ...visualEvents,
+      {
+        id: nextVisualEventId,
+        type: "emp_pulse" as const,
+        x: center.x,
+        y: center.y,
+        text: "⚡ EMP PULSE",
+        bornAt: state.elapsedMs,
+      },
+    ];
+
+    set({
+      grid: newGrid,
+      dronePulseCooldownMs: 4000,
+      trauma: Math.min(1.0, state.trauma + 0.4),
+      visualEvents: newVisualEvents,
+      nextVisualEventId: nextVisualEventId + 1,
+    });
+  },
+
+  showSectorBanner: (title: string, subtitle: string, isWarning = false) => {
+    set({ sectorBanner: { title, subtitle, isWarning } });
+    setTimeout(() => {
+      set({ sectorBanner: null });
+    }, 3500);
+  },
+
+  clearSectorBanner: () => set({ sectorBanner: null }),
+
+  showOsToast: (msg: string) => {
+    set({ osToastMessage: msg });
+    setTimeout(() => {
+      set({ osToastMessage: null });
+    }, 3000);
+  },
+  clearOsToast: () => set({ osToastMessage: null }),
+
+  triggerPrivilegeLockEvent: () => {
+    const state = get();
+    if (state.hasTriggeredLockEvent) return;
+
+    set({
+      hasTriggeredLockEvent: true,
+      isPrivilegeSuspended: true,
+      isInputLocked: true,
+      inputLockRemainingMs: 3500,
+      osAlertBanner: "⚠️ CRITICAL OPERATING SYSTEM KERNEL REVOCATION // USER CONTROL TEMPORARILY HIJACKED",
+    });
+
+    state.addLog("HALT", "⚠️ SYSTEM WARNING: OPERATOR CONTROL TEMPORARILY REVOKED BY OS KERNEL.");
   },
 }));

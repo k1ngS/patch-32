@@ -30,28 +30,57 @@ export function useCanvasInput(canvasRef: React.RefObject<HTMLCanvasElement | nu
 
     const handlePointerDown = (e: PointerEvent) => {
       const state = useGameStore.getState();
-      if (state.phase !== 'playing') return;
+      if (state.phase !== 'playing' || state.isInputLocked) return;
+
       if (e.button === 0 && mouseGridRef.current) {
-        state.placeEmitter(mouseGridRef.current.x, mouseGridRef.current.y);
+        const gx = mouseGridRef.current.x;
+        const gy = mouseGridRef.current.y;
+
+        // Check if there is an existing Emitter on this cell
+        const existingEmitter = state.emitterNodes.find(
+          (node) => node.pos.x === gx && node.pos.y === gy
+        );
+
+        if (existingEmitter) {
+          // Reboot / Flush Emitter
+          state.rebootEmitter(existingEmitter.id);
+        } else {
+          // Place new Emitter Node
+          state.placeEmitter(gx, gy);
+        }
+      } else if (e.button === 2) {
+        // Right click fires Drone EMP Pulse
+        e.preventDefault();
+        state.fireDronePulse();
       }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useGameStore.getState();
-      if (state.phase !== 'playing') return;
+      if (state.phase !== 'playing' || state.isInputLocked) return;
+
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') {
         state.setOverclockPressed();
+      } else if (e.code === 'Space') {
+        e.preventDefault();
+        state.fireDronePulse();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     canvas.addEventListener("pointerdown", handlePointerDown as EventListener);
     canvas.addEventListener("pointermove", handlePointerMove as EventListener);
+    canvas.addEventListener("contextmenu", handleContextMenu);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       canvas.removeEventListener("pointerdown", handlePointerDown as EventListener);
       canvas.removeEventListener("pointermove", handlePointerMove as EventListener);
+      canvas.removeEventListener("contextmenu", handleContextMenu);
     };
   }, [canvasRef]);
 

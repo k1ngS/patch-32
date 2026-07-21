@@ -40,10 +40,12 @@ export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetr
   return (
     <header className="w-full flex items-center justify-between gap-2 sm:gap-4 bg-[#030305] px-2 py-1 font-mono select-none shrink-0 border-b border-zinc-900">
       {/* SECTOR / WAVE INFO */}
-      <div className="flex flex-col min-w-[75px] sm:min-w-[110px]">
-        <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Sector</span>
+      <div className="flex flex-col min-w-[85px] sm:min-w-[130px]">
+        <span className="text-[9px] text-zinc-500 uppercase tracking-widest">
+          Sector 0{currentSectorIndex + 1} // {currentSectorIndex === 0 ? "Root" : currentSectorIndex === 1 ? "Cache" : "Gateway"}
+        </span>
         <span className="text-xs sm:text-sm font-bold text-cyan-400">
-          0{currentSectorIndex + 1} // {formatTime(remainingMs)}
+          {formatTime(remainingMs)}
         </span>
       </div>
 
@@ -76,11 +78,11 @@ export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetr
         </button>
       </div>
 
-      {/* CORE INTEGRITY BAR */}
+      {/* KERNEL INTEGRITY BAR */}
       <div className="flex-1 max-w-md flex flex-col space-y-0.5">
         <div className="flex justify-between items-center text-xs">
           <span className="text-zinc-500 uppercase text-[9px] sm:text-[10px] font-bold tracking-wider flex items-center gap-1">
-            Core Integrity
+            Kernel Integrity
             {isCriticalHealth && <span className="text-red-500 animate-ping font-bold">[CRITICAL]</span>}
             {!isCriticalHealth && isLowHealth && <span className="text-amber-500 font-bold">[WARN]</span>}
           </span>
@@ -96,14 +98,14 @@ export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetr
         </div>
         {core.shieldPoints > 0 && (
           <span className="text-[9px] text-amber-400 uppercase tracking-wider text-right font-bold">
-            + {Math.ceil(core.shieldPoints)} OVERSHIELD
+            + {Math.ceil(core.shieldPoints)} FIREWALL SHIELD
           </span>
         )}
       </div>
 
       {/* BITS ECONOMY */}
-      <div className="flex flex-col items-end min-w-[65px] sm:min-w-[95px]">
-        <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Resource</span>
+      <div className="flex flex-col items-end min-w-[65px] sm:min-w-[95px]" title="Recovered Computational Resources (CPU / RAM / Cache)">
+        <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Bits</span>
         <span className="text-xs sm:text-sm font-bold text-amber-500 flex items-center gap-1">
           <span className="text-amber-400 font-normal">₿</span> {score.currency}
         </span>

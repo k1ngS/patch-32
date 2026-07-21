@@ -121,11 +121,13 @@ export function drawHoverPreview(
     const cx = hoverPos.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = hoverPos.y * TILE_SIZE + TILE_SIZE / 2;
     
-    const blink = (time % 800) < 400 ? 0.55 : 0.2;
+    const isCritical = state.core.health < 400; // < 20% max health
+    const blinkCycle = isCritical ? 1600 : 800; // Scanner blinks slower in Critical state
+    const blink = (time % blinkCycle) < (blinkCycle / 2) ? 0.55 : 0.2;
     
     ctx.beginPath();
     ctx.arc(cx, cy, TILE_SIZE * 0.6, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(120, 220, 255, ${blink})`;
+    ctx.strokeStyle = isCritical ? `rgba(239, 68, 68, ${blink})` : `rgba(120, 220, 255, ${blink})`;
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 4]);
     ctx.stroke();

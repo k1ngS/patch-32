@@ -13,7 +13,55 @@ export function drawVisualEvents(
     const cx = ev.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = ev.y * TILE_SIZE + TILE_SIZE / 2;
 
-    if (ev.type === "purge" || ev.type === "first_kill") {
+    if (ev.type === "emp_pulse") {
+      if (age <= 400) {
+        const progress = age / 400;
+        const alpha = 1 - progress;
+        const radius = TILE_SIZE * 0.5 + progress * TILE_SIZE * 3.5;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = `rgba(34, 211, 238, ${alpha})`;
+        ctx.lineWidth = 4 * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(34, 211, 238, ${alpha * 0.2})`;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (ev.text && age <= 800) {
+        const progress = age / 800;
+        const textAlpha = 1 - progress;
+        const floatY = cy - progress * 30;
+
+        ctx.save();
+        ctx.shadowColor = "#22d3ee";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = `rgba(34, 211, 238, ${textAlpha})`;
+        ctx.font = "bold 13px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(ev.text, cx, floatY);
+        ctx.restore();
+      }
+    } else if (ev.type === "reboot") {
+      if (ev.text && age <= 800) {
+        const progress = age / 800;
+        const textAlpha = 1 - progress;
+        const floatY = cy - progress * 25;
+
+        ctx.save();
+        ctx.shadowColor = "#10b981";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = `rgba(16, 185, 129, ${textAlpha})`;
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(ev.text, cx, floatY);
+        ctx.restore();
+      }
+    } else if (ev.type === "purge" || ev.type === "first_kill") {
       const isFirst = ev.type === "first_kill";
       const duration = isFirst ? 240 : 120;
       
