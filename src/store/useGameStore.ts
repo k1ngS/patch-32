@@ -460,10 +460,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
 
         pushLog("PURGE", `> PURGE EXECUTED // METRIC: ${purgeResult.cleansedIndices.length} CELLS DELETED`);
+        pushLog("PURGE", "[PROCESS] // Memory block recovered. Allocation released.");
         audioEngine.playSfx("purge");
         if (purgeResult.chainLength > 1) {
           pushLog("CHAIN", `> CASCADE CLIMAX // REACTION EXPONENT: ${purgeResult.chainLength}`);
         }
+
+        // Register RAM FREED feedback event
+        visualEvents.push({
+          id: nextVisualEventId++,
+          type: "ram_freed",
+          x: targetPos.x,
+          y: targetPos.y,
+          text: "RAM_FREED",
+          bornAt: newElapsed,
+        });
 
         // Combo
         score.comboCount++;
@@ -502,6 +513,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
           if (p.hp <= 0) {
             p.markedForRemoval = true;
             score.currency += PARASITE_CONFIGS[p.variant].bitsDrop;
+
+            visualEvents.push({
+              id: nextVisualEventId++,
+              type: "ram_freed",
+              x: p.pos.x,
+              y: p.pos.y,
+              text: "MEMORY_RELEASED",
+              bornAt: newElapsed,
+            });
+
+            pushLog("PURGE", "[MEMORY] // Allocation released. Resource returned.");
+            audioEngine.playSfx("purge");
 
             if (!firstKillDone) {
               firstKillDone = true;

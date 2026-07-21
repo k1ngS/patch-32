@@ -1,6 +1,5 @@
 import { TILE_SIZE } from "@/constants/gameConfig";
 import type { NeonCable } from "@/types/game";
-import { COL } from "./colors";
 
 export function drawCables(
   ctx: CanvasRenderingContext2D,
@@ -28,46 +27,36 @@ export function drawCables(
     }
 
     const isBorder = cable.isBorderLink;
-    const glowCol = isBorder ? COL.cableBorderGlow : COL.cableGlow;
-    const lineCol = isBorder ? COL.cableBorder : COL.cableCyan;
+    const lineCol = isBorder ? "#10b981" : "#06b6d4";
 
-    const flowPhase = (time * 0.003) % 1;
+    ctx.save();
 
-    ctx.shadowColor = glowCol;
-    ctx.shadowBlur = 8;
-
+    // Verification Thread Monitoring Line
     ctx.beginPath();
     ctx.moveTo(sx, sy);
     ctx.lineTo(ex, ey);
     ctx.strokeStyle = lineCol;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha =
-      cable.state === "completed" ? 0.6 + Math.sin(time * 0.005) * 0.2 : 0.85;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-    ctx.shadowBlur = 0;
-
-    if (cable.state === "active" || cable.state === "completed") {
-      const particleT = flowPhase;
-      const ppx = sx + (ex - sx) * particleT;
-      const ppy = sy + (ey - sy) * particleT;
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(ppx, ppy, 2, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = cable.state === "completed" ? 0.7 + Math.sin(time * 0.005) * 0.2 : 0.9;
+    if (isBorder) {
+      ctx.setLineDash([3, 3]);
     }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
 
+    // Source Probe Marker (Small Square)
     ctx.fillStyle = lineCol;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(sx - 2, sy - 2, 4, 4);
 
+    // Target Probe Marker (Small Square)
     if (cable.targetPos) {
       const tx = cable.targetPos.x * TILE_SIZE + TILE_SIZE / 2;
       const ty = cable.targetPos.y * TILE_SIZE + TILE_SIZE / 2;
-      ctx.beginPath();
-      ctx.arc(tx, ty, 3, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(tx - 2, ty - 2, 4, 4);
     }
+
+    ctx.restore();
   }
 }
+

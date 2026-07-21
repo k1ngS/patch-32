@@ -10,68 +10,72 @@ export function drawEmitters(
   for (const emitter of emitters) {
     const cx = emitter.pos.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = emitter.pos.y * TILE_SIZE + TILE_SIZE / 2;
-    const size = 8; // Increased from 5
-
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 2;
-      const x = cx + size * Math.cos(angle);
-      const y = cy + size * Math.sin(angle);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
+    const size = TILE_SIZE * 0.44;
 
     const isOverheated = emitter.isOverheated || emitter.state === "overheated";
+    const isBooting = emitter.state === "booting";
 
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // Process Block Background
     if (isOverheated) {
-      const pulse = 0.5 + Math.sin(time * 0.012) * 0.5;
-      ctx.fillStyle = `rgba(245, 158, 11, ${0.7 + pulse * 0.3})`;
-      ctx.shadowColor = "#ef4444";
-      ctx.shadowBlur = 15;
+      const pulse = Math.sin(time * 0.01) * 0.2 + 0.8;
+      ctx.fillStyle = `rgba(185, 28, 28, ${0.4 * pulse})`;
+      ctx.strokeStyle = "#ef4444";
+    } else if (isBooting) {
+      ctx.fillStyle = "rgba(217, 119, 6, 0.3)";
+      ctx.strokeStyle = "#f59e0b";
     } else if (emitter.state === "ready") {
-      if (thermalThrottleMs > 0) {
-        ctx.fillStyle = "#d97706";
-        ctx.shadowColor = "#d97706";
-      } else {
-        ctx.fillStyle = "#58e0d8";
-        ctx.shadowColor = "#58e0d8";
-      }
-      ctx.shadowBlur = 10 + Math.sin(time * 0.005) * 5;
-    } else if (emitter.state === "cooldown") {
-      if (thermalThrottleMs > 0) {
-        ctx.fillStyle = "#92400e";
-      } else {
-        ctx.fillStyle = "#2a7a76";
-      }
-      ctx.shadowBlur = 0;
-    } else if (emitter.state === "booting") {
-      ctx.fillStyle = "#ff2244";
-      ctx.shadowColor = "#ff2244";
-      ctx.shadowBlur = 15 * (0.5 + Math.sin(time * 0.015) * 0.5);
+      ctx.fillStyle = thermalThrottleMs > 0 ? "rgba(180, 83, 9, 0.4)" : "rgba(15, 118, 110, 0.4)";
+      ctx.strokeStyle = thermalThrottleMs > 0 ? "#f59e0b" : "#06b6d4";
+    } else {
+      // Cooldown
+      ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
+      ctx.strokeStyle = "#0891b2";
     }
 
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    // Process Box
+    ctx.fillRect(-size, -size, size * 2, size * 2);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-size, -size, size * 2, size * 2);
 
-    // Draw range circle
+    // Process Header Bar
+    ctx.fillStyle = isOverheated ? "#7f1d1d" : isBooting ? "#78350f" : "#0e7490";
+    ctx.fillRect(-size, -size, size * 2, 4);
+
+    // Process Tag Label (FW: Firewall, QR: Quarantine, HA: Heuristics, KD: Kernel Defender)
+    const procTag = emitter.shotsFired > 3 ? "KD" : emitter.shotsFired > 1 ? "QR" : "FW";
+    ctx.font = "bold 8px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = isOverheated ? "#fca5a5" : isBooting ? "#fde68a" : "#cffaff";
+    ctx.fillText(procTag, 0, 1);
+
+    ctx.restore();
+
+    // Discrete Range Verification Boundary (thin dashed monitoring line)
+    ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, emitter.length * TILE_SIZE, 0, Math.PI * 2);
+    ctx.setLineDash([2, 4]);
     ctx.strokeStyle = isOverheated
-      ? "rgba(245, 158, 11, 0.2)"
-      : emitter.state === "booting"
-        ? "rgba(255, 34, 68, 0.1)"
-        : "rgba(88, 224, 216, 0.1)";
+      ? "rgba(239, 68, 68, 0.25)"
+      : isBooting
+        ? "rgba(245, 158, 11, 0.25)"
+        : "rgba(6, 182, 212, 0.2)";
     ctx.lineWidth = 1;
     ctx.stroke();
+    ctx.restore();
 
-    // Render [REBOOT] Badge if Overheated
+    // Overheated System Status Banner
     if (isOverheated) {
-      const blink = (time % 600) < 300;
-      ctx.font = "bold 9px monospace";
+      const blink = (time % 500) < 250;
+      ctx.font = "bold 8px monospace";
       ctx.textAlign = "center";
-      ctx.fillStyle = blink ? "#f59e0b" : "#ef4444";
-      ctx.fillText("[REBOOT]", cx, cy - 12);
+      ctx.fillStyle = blink ? "#ef4444" : "#f59e0b";
+      ctx.fillText("[REBOOT_REQ]", cx, cy - size - 4);
     }
   }
 }
+

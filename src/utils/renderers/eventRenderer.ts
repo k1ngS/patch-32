@@ -13,7 +13,27 @@ export function drawVisualEvents(
     const cx = ev.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = ev.y * TILE_SIZE + TILE_SIZE / 2;
 
-    if (ev.type === "emp_pulse") {
+    if (ev.type === "ram_freed") {
+      if (age <= 250) {
+        const progress = age / 250;
+        const alpha = 1 - progress;
+        const size = TILE_SIZE * 0.44;
+
+        ctx.save();
+        // Discrete Cyan Cell Border
+        ctx.strokeStyle = `rgba(6, 182, 212, ${alpha * 0.9})`;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(cx - size, cy - size, size * 2, size * 2);
+
+        // Memory Release Tag Label
+        ctx.font = "bold 7px monospace";
+        ctx.fillStyle = `rgba(34, 211, 238, ${alpha})`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(ev.text || "RAM_FREED", cx, cy - progress * 8);
+        ctx.restore();
+      }
+    } else if (ev.type === "emp_pulse") {
       if (age <= 400) {
         const progress = age / 400;
         const alpha = 1 - progress;

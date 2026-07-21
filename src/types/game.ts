@@ -72,7 +72,7 @@ export interface EmitterNode {
 
 export interface VisualEvent {
   readonly id: number;
-  readonly type: "purge" | "first_kill" | "core_damage" | "first_bits" | "emp_pulse" | "reboot";
+  readonly type: "purge" | "first_kill" | "core_damage" | "first_bits" | "emp_pulse" | "reboot" | "ram_freed";
   readonly x: number;
   readonly y: number;
   readonly bits?: number;
