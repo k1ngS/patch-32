@@ -4,6 +4,7 @@
 
 import { create } from "zustand";
 import { audioEngine } from "@/utils/audioEngine";
+import { runtimeEngine } from "@/runtime/RuntimeEngine";
 import {
   CABLE_BASE_TTL_MS,
   CABLE_EXTEND_SPEED,
@@ -827,6 +828,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       firstKillDone,
       firstBitsTimeMs,
     });
+
+    runtimeEngine.observe(get());
   },
 
   setMoveVector: (x, y) =>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { OVERCLOCK_CONFIGS, UPGRADE_CONFIGS } from "@/constants/gameConfig";
 import { useGameStore } from "@/store/useGameStore";
+import { powerBusConsumer } from "@/runtime/consumers/PowerBusConsumer";
 import type { UpgradeId } from "@/types/game";
 
 export function ActionBar() {
@@ -13,13 +14,12 @@ export function ActionBar() {
   const setOverclockPressed = useGameStore((state) => state.setOverclockPressed);
 
   const [injectingMap, setInjectingMap] = useState<Record<string, boolean>>({});
-  const [dots, setDots] = useState("");
+  const [, setPowerBusState] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
-    }, 80);
-    return () => clearInterval(interval);
+    return powerBusConsumer.subscribe(() => {
+      setPowerBusState((prev) => prev + 1);
+    });
   }, []);
 
   const ocUpgrade = upgrades.get("core_overclock");
@@ -40,19 +40,19 @@ export function ActionBar() {
   };
 
   return (
-    <footer className="w-full max-w-5xl flex flex-col sm:flex-row items-stretch gap-2 bg-[#0a0a10]/90 border border-zinc-800/80 rounded-lg p-2 font-mono text-xs select-none backdrop-blur shrink-0">
+    <footer className="w-full flex flex-col sm:flex-row items-stretch gap-1.5 bg-[#030305] border-t border-zinc-900 px-2 py-1 font-mono text-xs select-none shrink-0">
       {/* OVERCLOCK ACTION BUTTON */}
       <button
         disabled={!isOcReady}
         onClick={() => setOverclockPressed()}
-        className={`relative overflow-hidden flex items-center justify-center px-4 py-2 border font-bold uppercase tracking-wider transition-colors shrink-0 rounded ${
+        className={`relative overflow-hidden flex items-center justify-center px-3 py-1 border font-bold uppercase tracking-wider transition-colors shrink-0 rounded-none text-[10px] ${
           !isOcUnlocked
-            ? "bg-zinc-900/60 border-zinc-800 text-zinc-600 cursor-not-allowed"
+            ? "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed"
             : core.overclockActive
-              ? "bg-amber-500/20 border-amber-500 text-amber-400 animate-pulse"
+              ? "bg-amber-900/30 border-amber-500 text-amber-400 animate-pulse"
               : isOcReady
-                ? "bg-amber-500 hover:bg-amber-400 border-amber-400 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
-                : "bg-zinc-900 border-zinc-800 text-amber-700/60 cursor-not-allowed"
+                ? "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black"
+                : "bg-black border-zinc-900 text-amber-700/60 cursor-not-allowed"
         }`}
       >
         {isOcUnlocked && (!isOcReady || core.overclockActive) && (
@@ -70,7 +70,7 @@ export function ActionBar() {
       </button>
 
       {/* UPGRADES HOTBAR GRID */}
-      <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 overflow-x-auto custom-scrollbar">
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 overflow-x-auto custom-scrollbar">
         {UPGRADE_CONFIGS.map((config) => {
           const upg = upgrades.get(config.id);
           if (!upg) return null;
@@ -95,29 +95,29 @@ export function ActionBar() {
               key={config.id}
               disabled={isMax || !canAfford || isInjecting}
               onClick={() => handlePurchase(config.id)}
-              className={`flex flex-col justify-between p-1.5 rounded border text-left transition-all relative min-w-[70px] ${
+              className={`flex flex-col justify-between p-1.5 rounded-none border text-left transition-colors relative min-w-[70px] ${
                 isInjecting
-                  ? "bg-cyan-900/40 border-cyan-400 text-cyan-200"
+                  ? "bg-cyan-900/30 border-cyan-500 text-cyan-200"
                   : isMax
-                    ? "bg-zinc-900/30 border-zinc-800/50 text-zinc-600 cursor-not-allowed opacity-60"
+                    ? "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed opacity-80"
                     : canAfford
-                      ? "bg-zinc-900/80 hover:bg-cyan-950/60 border-zinc-700 hover:border-cyan-500 text-zinc-200"
-                      : "bg-zinc-950/40 border-zinc-900 text-zinc-600 cursor-not-allowed"
+                      ? "bg-[#020202] hover:bg-zinc-900 border-zinc-800 hover:border-cyan-500 text-zinc-300"
+                      : "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed"
               }`}
             >
               <div className="flex justify-between items-center w-full text-[9px] mb-0.5">
-                <span className="font-semibold truncate pr-1">{shortLabel}</span>
-                <span className="text-cyan-400 font-bold text-[8px] bg-cyan-950/80 px-1 rounded">
+                <span className="font-semibold truncate pr-1 text-zinc-400">{shortLabel}</span>
+                <span className="text-cyan-500 font-bold text-[8px] bg-black px-1 border border-zinc-900">
                   L{upg.level}
                 </span>
               </div>
               <div className="text-[9px] font-bold">
                 {isInjecting ? (
-                  <span className="text-cyan-300">...</span>
+                  <span className="text-cyan-400">...</span>
                 ) : isMax ? (
-                  <span className="text-zinc-600">MAX</span>
+                  <span className="text-zinc-700">MAX</span>
                 ) : (
-                  <span className={canAfford ? "text-amber-400" : "text-zinc-600"}>
+                  <span className={canAfford ? "text-amber-500" : "text-zinc-700"}>
                     ₿ {cost}
                   </span>
                 )}

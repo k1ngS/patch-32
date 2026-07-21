@@ -8,16 +8,17 @@ export function drawGrid(
   saturation: number,
   time: number
 ): void {
-  // Cor das linhas do Grid reage à saturação (Seguro -> Tensão -> Colapso)
-  if (saturation > 0.6) {
-    const pulse = 0.2 + Math.sin(time * 0.008) * 0.15;
+  // Cor das linhas do Grid reage à saturação (Apenas em crise)
+  if (saturation > 0.7) {
+    const pulse = 0.15 + Math.sin(time * 0.008) * 0.1;
     ctx.strokeStyle = `rgba(220, 38, 38, ${pulse})`;
-  } else if (saturation > 0.3) {
-    ctx.strokeStyle = "rgba(212, 160, 23, 0.25)";
+  } else if (saturation > 0.4) {
+    ctx.strokeStyle = "rgba(212, 160, 23, 0.15)";
   } else {
     ctx.strokeStyle = COL.gridLine;
   }
 
+  // 1. Linhas finas de matriz de memória (0.5px)
   ctx.lineWidth = 0.5;
   for (let i = 0; i <= GRID_SIZE; i++) {
     const pos = i * TILE_SIZE;
@@ -31,6 +32,17 @@ export function drawGrid(
     ctx.stroke();
   }
 
+  // 2. Micro-pontos de interseção de hardware (Matriz densa)
+  ctx.fillStyle = COL.gridDot;
+  for (let x = 0; x <= GRID_SIZE; x += 4) {
+    for (let y = 0; y <= GRID_SIZE; y += 4) {
+      const px = x * TILE_SIZE;
+      const py = y * TILE_SIZE;
+      ctx.fillRect(px - 1, py - 1, 2, 2);
+    }
+  }
+
+  // 3. Renderização de todos os 1024 setores da matriz (32x32)
   for (let i = 0; i < grid.length; i++) {
     const node = grid[i];
     const px = node.pos.x * TILE_SIZE;
@@ -38,22 +50,18 @@ export function drawGrid(
 
     if (node.state === "corrupted") {
       const pulse = 0.7 + Math.sin(time * 0.004 + i * 0.1) * 0.3;
-      ctx.fillStyle = `rgba(204, 34, 51, ${0.35 * pulse})`;
+      ctx.fillStyle = `rgba(204, 34, 51, ${0.45 * pulse})`;
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-      ctx.shadowColor = COL.nodeCorruptedGlow;
-      ctx.shadowBlur = 6;
-      ctx.fillStyle = `rgba(255, 50, 50, ${0.15 * pulse})`;
-      ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(255, 60, 60, ${0.2 * pulse})`;
+      ctx.fillRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
     } else if (node.state === "unstable") {
-      // Nó instável pisca com mais urgência quando a saturação está alta
       const flickerSpeed = saturation > 0.5 ? 0.012 : 0.006;
       const flicker = 0.5 + Math.sin(time * flickerSpeed + i * 0.3) * 0.5;
-      ctx.fillStyle = `rgba(212, 160, 23, ${0.25 * flicker})`;
+      ctx.fillStyle = `rgba(212, 160, 23, ${0.3 * flicker})`;
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-      ctx.strokeStyle = `rgba(212, 160, 23, ${0.25 * flicker})`;
+      ctx.strokeStyle = `rgba(212, 160, 23, ${0.3 * flicker})`;
       ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(px, py);
@@ -61,9 +69,17 @@ export function drawGrid(
       ctx.moveTo(px + TILE_SIZE, py);
       ctx.lineTo(px, py + TILE_SIZE);
       ctx.stroke();
-    } else if (node.purgeImmunityMs > 0) {
+    } else {
+      // Setores limpos: Matriz de memória monitorada em alta densidade
+      ctx.fillStyle = "rgba(15, 23, 42, 0.2)";
+      ctx.fillRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.strokeRect(px + 0.5, py + 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+    }
+
+    if (node.purgeImmunityMs > 0) {
       const fade = Math.min(1, node.purgeImmunityMs / 1500);
-      ctx.fillStyle = `rgba(0, 255, 180, ${0.12 * fade})`;
+      ctx.fillStyle = `rgba(0, 255, 180, ${0.15 * fade})`;
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
 

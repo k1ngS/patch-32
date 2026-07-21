@@ -205,109 +205,15 @@ function drawHUD(
   state: GameState,
   time: number
 ): void {
-  const { core, score, remainingMs, upgrades, activeEntityCount } = state;
-
-  ctx.textAlign = "left";
-  ctx.font = "bold 9px monospace";
-
-  const secs = Math.ceil(remainingMs / 1000);
-  const mins = Math.floor(secs / 60);
-  const secsR = secs % 60;
-  const timerStr = `${mins}:${secsR.toString().padStart(2, "0")}`;
-
-  const timerUrgent = secs <= 30;
-  ctx.textAlign = "center";
-  ctx.fillStyle = timerUrgent
-    ? `rgba(255, 68, 68, ${0.7 + Math.sin(time * 0.008) * 0.3})`
-    : COL.hudText;
-  ctx.font = "bold 16px monospace";
-  ctx.fillText(timerStr, CANVAS_SIZE / 2, 32);
-
-  ctx.textAlign = "left";
-  ctx.font = "bold 14px monospace";
-  ctx.fillStyle = COL.hudText;
-  ctx.fillText(`SCR ${Math.floor(score.total)}`, 24, 32);
-
+  // Render subtle technical viewport corners & coordinates instead of floating arcade HUD text
   ctx.save();
-  let bitsScale = 1;
-  let bitsColor = "#ffcc44";
-  if (state.firstBitsTimeMs > 0) {
-    const age = state.elapsedMs - state.firstBitsTimeMs;
-    if (age >= 0 && age < 600) {
-      const progress = age / 600;
-      if (progress < 0.15) {
-        bitsScale = 1 + (progress / 0.15) * 0.5;
-      } else {
-        bitsScale = 1.5 - ((progress - 0.15) / 0.85) * 0.5;
-      }
-      ctx.shadowColor = "#ffcc44";
-      ctx.shadowBlur = 10 * (1 - progress);
-    }
-  }
-
-  ctx.fillStyle = bitsColor;
-  ctx.font = `bold ${Math.round(14 * bitsScale)}px monospace`;
-  ctx.fillText(`₿${Math.floor(score.displayedCurrency)}`, 24, 52);
-  ctx.restore();
-
-  ctx.fillStyle = "rgba(136, 204, 255, 0.8)";
-  ctx.font = "bold 12px monospace";
-  ctx.fillText(`NODES ${activeEntityCount}/${MAX_EMITTERS}`, 24, 70);
-
-  ctx.textAlign = "right";
-  if (score.multiplier > 1) {
-    const comboPulse = 0.7 + Math.sin(time * 0.008) * 0.3;
-    ctx.fillStyle = `rgba(255, 200, 0, ${comboPulse})`;
-    ctx.font = "bold 14px monospace";
-    ctx.fillText(`x${score.multiplier.toFixed(1)}`, CANVAS_SIZE - 24, 32);
-
-    ctx.fillStyle = "rgba(255, 200, 0, 0.5)";
-    ctx.font = "10px monospace";
-    ctx.fillText(`COMBO ${score.comboCount}`, CANVAS_SIZE - 24, 52);
-  }
-
-  const barWidth = 80;
-  const barHeight = 5;
-  const barX = (CANVAS_SIZE - barWidth) / 2;
-  const barY = CANVAS_SIZE - 36;
-  const healthPct = Math.max(0, core.health / CORE_MAX_HEALTH);
-
-  ctx.fillStyle = "rgba(20, 20, 30, 0.7)";
-  ctx.fillRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
-
-  const barColor = lerpColor("#cc2233", "#00ffc8", healthPct);
-  ctx.fillStyle = barColor;
-  ctx.fillRect(barX, barY, barWidth * healthPct, barHeight);
-
-  ctx.textAlign = "center";
   ctx.font = "8px monospace";
-  ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.fillText(
-    `CORE ${Math.ceil(core.health)}/${CORE_MAX_HEALTH}`,
-    CANVAS_SIZE / 2,
-    barY - 4,
-  );
-
-  if (core.overclockCooldownMs > 0) {
-    ctx.textAlign = "right";
-    ctx.font = "10px monospace";
-    ctx.fillStyle = "rgba(255, 170, 0, 0.5)";
-    ctx.fillText(
-      `OC ${(core.overclockCooldownMs / 1000).toFixed(0)}s`,
-      CANVAS_SIZE - 24,
-      CANVAS_SIZE - 24,
-    );
-  } else if ((upgrades.get("core_overclock")?.level ?? 0) > 0) {
-    ctx.textAlign = "right";
-    ctx.font = "10px monospace";
-    ctx.fillStyle = "rgba(255, 170, 0, 0.8)";
-    ctx.fillText("OC READY", CANVAS_SIZE - 24, CANVAS_SIZE - 24);
-  }
-
+  ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
   ctx.textAlign = "left";
-  ctx.font = "10px monospace";
-  ctx.fillStyle = "rgba(136, 204, 255, 0.3)";
-  ctx.fillText(`ENT:${activeEntityCount}`, 24, CANVAS_SIZE - 24);
+  ctx.fillText("VIEWPORT_01 // 32x32_MATRIX", 8, 12);
+  ctx.textAlign = "right";
+  ctx.fillText("SCALE: 1:1", CANVAS_SIZE - 8, 12);
+  ctx.restore();
 }
 
 export function drawGridBrackets(

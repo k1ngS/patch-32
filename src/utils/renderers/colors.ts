@@ -1,8 +1,8 @@
 export const COL = {
-  bg: "#0a0a10",
-  gridLine: "rgba(30, 40, 60, 0.35)",
-  gridDot: "rgba(50, 70, 100, 0.25)",
-  nodeClean: "rgba(20, 35, 55, 0.4)",
+  bg: "#020204",
+  gridLine: "rgba(255, 255, 255, 0.04)",
+  gridDot: "rgba(0, 229, 255, 0.15)",
+  nodeClean: "rgba(15, 23, 42, 0.2)",
   nodeUnstable: "#d4a017",
   nodeUnstableGlow: "rgba(212, 160, 23, 0.3)",
   nodeCorrupted: "#cc2233",

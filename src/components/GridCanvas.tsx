@@ -96,9 +96,9 @@ export default function GridCanvas() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [mouseGridRef]);
 
-  // ── 3. Layout (CSS scaling without scrollbars) ──────────────
+  // ── 3. Layout (Pure crisp viewport canvas) ──────────────────
   return (
-    <div className="relative w-full h-full flex-shrink-0 bg-[#0a0a10] rounded shadow-[0_0_50px_rgba(0,0,0,0.8)] aspect-square overflow-hidden select-none">
+    <div className="relative w-full h-full bg-black aspect-square overflow-hidden select-none flex items-center justify-center">
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-crosshair"

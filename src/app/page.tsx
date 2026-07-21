@@ -2,6 +2,7 @@
 
 import GridCanvas from "@/components/GridCanvas";
 import { useGameStore } from "@/store/useGameStore";
+import { frameConsumer, type MachineStance } from "@/runtime/consumers/FrameConsumer";
 import { MainMenu } from "@/components/screens/MainMenu";
 import { TutorialScreen } from "@/components/screens/TutorialScreen";
 import { GameOverReport } from "@/components/screens/GameOverReport";
@@ -10,12 +11,20 @@ import { ActionBar } from "@/components/hud/ActionBar";
 import { LogTerminal } from "@/components/hud/LogTerminal";
 import { TelemetryPanel } from "@/components/hud/TelemetryPanel";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function Home() {
   const activeScreen = useGameStore((state) => state.activeScreen);
-  const [showLogs, setShowLogs] = useState(false);
-  const [showTelemetry, setShowTelemetry] = useState(false);
+  const [machineStance, setMachineStance] = useState<MachineStance>(frameConsumer.getStance());
+
+  useEffect(() => {
+    return frameConsumer.subscribe(() => {
+      setMachineStance(frameConsumer.getStance());
+    });
+  }, []);
+
+  const [showLogs, setShowLogs] = useState(true);
+  const [showTelemetry, setShowTelemetry] = useState(true);
 
   const toggleLogs = () => {
     setShowLogs((prev) => !prev);
@@ -25,90 +34,122 @@ export default function Home() {
     setShowTelemetry((prev) => !prev);
   };
 
+  // Border & breathing styles derived from FrameConsumer Machine Stance
+  let frameBorderColor = "border-zinc-900";
+  let statusTagColor = "text-zinc-600 border-zinc-800";
+  let statusText = "ISOLATED // NOMINAL";
+
+  if (machineStance === "anxious") {
+    frameBorderColor = "border-amber-600/80 shadow-[0_0_15px_rgba(217,119,6,0.15)]";
+    statusTagColor = "text-amber-500 border-amber-800/80 bg-amber-950/20";
+    statusText = "SYSTEM_STRESS // ELEVATED";
+  } else if (machineStance === "overclock") {
+    frameBorderColor = "border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.3)]";
+    statusTagColor = "text-amber-300 border-amber-500 bg-amber-950/40";
+    statusText = "POWER_SURGE // OVERCLOCK";
+  } else if (machineStance === "collapse") {
+    frameBorderColor = "border-red-600/90 shadow-[0_0_30px_rgba(220,38,38,0.4)]";
+    statusTagColor = "text-red-500 border-red-800 bg-red-950/40";
+    statusText = "KERNEL_COLLAPSE // BREACHED";
+  }
+
   return (
-    <main className="w-full h-[100dvh] flex flex-col items-center bg-[#050508] text-[#e0e0e0] font-mono select-none overflow-hidden p-2 sm:p-3 relative">
+    <main className={`w-full h-[100dvh] flex flex-col bg-[#020202] text-[#e0e0e0] font-mono select-none overflow-hidden p-0 sm:p-1 border-2 transition-colors duration-500 ${frameBorderColor}`}>
       {/* TELAS DE MENU E TUTORIAL */}
       {activeScreen === "menu" && <MainMenu />}
       {activeScreen === "tutorial" && <TutorialScreen />}
 
       {/* TELA DE JOGO / GAMEOVER */}
       {(activeScreen === "game" || activeScreen === "gameover") && (
-        <div className="w-full h-full flex flex-col items-center justify-center gap-1 sm:gap-2 overflow-hidden relative">
+        <div className="w-full h-full flex flex-col min-h-0 bg-black relative">
           
-          {/* ÁREA CENTRAL MAXIMIZADA */}
-          <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0 overflow-hidden relative">
-            
-            {/* HUD SUPERIOR COLADA NO GRID */}
-            <div className="w-full max-w-6xl mb-1">
-              <TopHUD
-                showLogs={showLogs}
-                showTelemetry={showTelemetry}
-                onToggleLogs={toggleLogs}
-                onToggleTelemetry={toggleTelemetry}
-              />
-            </div>
+          {/* MACHINE REASONING / VITAL HEADER */}
+          <div className="w-full border-b border-zinc-900 bg-[#050508] flex justify-between items-center px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">
+            <span className="flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 ${machineStance === "collapse" ? "bg-red-500 animate-ping" : machineStance === "anxious" ? "bg-amber-500 animate-pulse" : "bg-cyan-500"}`}></span>
+              [PATCH32 // KERNEL APPARATUS]
+            </span>
+            <span className={`px-1.5 py-0.5 border font-bold ${statusTagColor}`}>
+              {statusText}
+            </span>
+          </div>
 
-            {/* CONTAINER CENTRAL DA ARENA (GRID) - ANCORA FIXA PARA AS ASAS LATERAIS */}
-            <div className="flex-1 flex items-center justify-center w-full min-h-0 overflow-visible relative">
-              
-              {/* ARENA CENTRAL PROTAGONISTA (GRID) */}
-              <section className="relative h-full max-h-[min(90vw,76vh)] aspect-square bg-[#0a0a10] border border-zinc-800/80 rounded-xl flex items-center justify-center p-0.5 sm:p-1 shadow-2xl shrink-0">
-                <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:24px_24px] opacity-20 pointer-events-none rounded-xl"></div>
+          {/* KERNEL INSTRUMENTATION (TOP HUD) */}
+          <div className="w-full border-b border-zinc-900">
+            <TopHUD
+              showLogs={showLogs}
+              showTelemetry={showTelemetry}
+              onToggleLogs={toggleLogs}
+              onToggleTelemetry={toggleTelemetry}
+            />
+          </div>
+
+          {/* MIDDLE INSTRUMENTATION + WORKSTATION MODULES */}
+          <div className="flex-1 flex flex-row items-stretch justify-center min-h-0 w-full relative overflow-hidden bg-black">
+            
+            {/* NATIVE SYSTEM CONSOLE (LOGS PANEL) */}
+            {showLogs && (
+              <aside className="flex-1 min-w-[200px] border-r border-zinc-900 bg-[#030305] flex flex-col z-10 animate-in fade-in slide-in-from-left-2 duration-150">
+                <div className="flex justify-between items-center px-2 py-1 border-b border-zinc-900 bg-black">
+                  <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-cyan-400 animate-pulse"></span>
+                    SYSTEM CONSOLE
+                  </span>
+                  <button
+                    onClick={() => setShowLogs(false)}
+                    className="text-[9px] text-zinc-500 hover:text-cyan-400 font-bold px-1 py-0.5 border border-zinc-800 hover:border-cyan-500/40"
+                  >
+                    [X]
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <LogTerminal />
+                </div>
+              </aside>
+            )}
+
+            {/* MEMORY MATRIX WORKSTATION MODULE (RESPONSIVE CLAMP: 520px -> 60vh -> 680px) */}
+            <div className="flex-shrink-0 flex items-center justify-center p-2 bg-black relative">
+              <section
+                className="relative aspect-square border border-zinc-900 bg-black flex items-center justify-center p-0 flex-shrink-0 overflow-hidden"
+                style={{
+                  width: "clamp(520px, 60vh, 680px)",
+                  height: "clamp(520px, 60vh, 680px)",
+                }}
+              >
                 <GridCanvas />
                 
-                {/* PAINEL ANCORADO À ESQUERDA (FORA DO GRID, 0 IMPACTO NO POSICIONAMENTO DO GRID) */}
-                {showLogs && (
-                  <aside className="absolute right-[calc(100%+8px)] top-0 bottom-0 w-56 sm:w-64 bg-[#0a0a10]/95 border border-cyan-500/40 rounded-xl p-2 shadow-2xl flex flex-col z-20 animate-in fade-in slide-in-from-right-2 duration-200">
-                    <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-zinc-800">
-                      <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                        SYS_LOGS // TERMINAL
-                      </span>
-                      <button
-                        onClick={() => setShowLogs(false)}
-                        className="text-[9px] text-zinc-500 hover:text-cyan-400 font-bold px-1.5 py-0.5 rounded border border-zinc-800 hover:border-cyan-500/40"
-                      >
-                        [x]
-                      </button>
-                    </div>
-                    <div className="flex-1 min-h-0">
-                      <LogTerminal />
-                    </div>
-                  </aside>
-                )}
-
-                {/* PAINEL ANCORADO À DIREITA (FORA DO GRID, 0 IMPACTO NO POSICIONAMENTO DO GRID) */}
-                {showTelemetry && (
-                  <aside className="absolute left-[calc(100%+8px)] top-0 bottom-0 w-48 sm:w-56 bg-[#0a0a10]/95 border border-amber-500/40 rounded-xl p-2 shadow-2xl flex flex-col z-20 animate-in fade-in slide-in-from-left-2 duration-200">
-                    <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-zinc-800">
-                      <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                        TELEMETRY // LIVE
-                      </span>
-                      <button
-                        onClick={() => setShowTelemetry(false)}
-                        className="text-[9px] text-zinc-500 hover:text-amber-400 font-bold px-1.5 py-0.5 rounded border border-zinc-800 hover:border-amber-500/40"
-                      >
-                        [x]
-                      </button>
-                    </div>
-                    <div className="flex-1 min-h-0">
-                      <TelemetryPanel />
-                    </div>
-                  </aside>
-                )}
-
                 {/* OVERLAY DE FIM DE JOGO */}
                 {activeScreen === "gameover" && <GameOverReport />}
               </section>
-
             </div>
 
-            {/* ACTION BAR INFERIOR COLADA NO GRID */}
-            <div className="w-full max-w-6xl mt-1">
-              <ActionBar />
-            </div>
+            {/* NATIVE TELEMETRY BUS (METRICS PANEL) */}
+            {showTelemetry && (
+              <aside className="flex-1 min-w-[200px] border-l border-zinc-900 bg-[#030305] flex flex-col z-10 animate-in fade-in slide-in-from-right-2 duration-150">
+                <div className="flex justify-between items-center px-2 py-1 border-b border-zinc-900 bg-black">
+                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-amber-400 animate-pulse"></span>
+                    TELEMETRY BUS
+                  </span>
+                  <button
+                    onClick={() => setShowTelemetry(false)}
+                    className="text-[9px] text-zinc-500 hover:text-amber-400 font-bold px-1 py-0.5 border border-zinc-800 hover:border-amber-500/40"
+                  >
+                    [X]
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <TelemetryPanel />
+                </div>
+              </aside>
+            )}
 
+          </div>
+
+          {/* POWER DISTRIBUTION BUS (ACTION BAR) */}
+          <div className="w-full border-t border-zinc-900">
+            <ActionBar />
           </div>
 
         </div>
