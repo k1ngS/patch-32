@@ -159,6 +159,7 @@ function createInitialState(): GameState {
     firstBitsTimeMs: -1,
     hasAppliedPatch: false,
     hasTriggeredLockEvent: false,
+    hasTriggeredOverride: false,
     isPrivilegeSuspended: false,
     isOverrideActive: false,
     osAlertBanner: null,
@@ -260,8 +261,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     const saturation = corruptedCount / grid.length;
     
-    // Sector 03 (Gateway) Fourth Wall Break Lock Event
-    if (currentSectorIndex === 2 && saturation > 0.10 && !state.hasTriggeredLockEvent) {
+    // Sector 03 (Gateway) 02:30 (150s) Fourth Wall Break System Override Event
+    if ((newElapsed >= 150000 || (currentSectorIndex === 2 && saturation > 0.10)) && (!state.hasTriggeredOverride && !state.hasTriggeredLockEvent)) {
       setTimeout(() => {
         get().triggerPrivilegeLockEvent();
       }, 0);
@@ -1124,10 +1125,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   triggerPrivilegeLockEvent: () => {
     const state = get();
-    if (state.hasTriggeredLockEvent) return;
+    if (state.hasTriggeredOverride) return;
 
     // 1. Trigger flags & Alert modal text
     set({
+      hasTriggeredOverride: true,
       hasTriggeredLockEvent: true,
       isOverrideActive: true,
       isPrivilegeSuspended: true,
@@ -1136,7 +1138,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       osAlertBanner: "[ WARNING: CRITICAL KERNEL BREACH DETECTED ]",
     });
 
-    state.addLog("HALT", "[ WARNING: CRITICAL KERNEL BREACH DETECTED ]");
+    state.addLog("HALT", "[CRITICAL] USER PRIVILEGES SUSPENDED BY KERNEL. Executing Emergency_Purge.exe...");
     state.addLog("BREACH", "User privileges temporarily suspended for emergency system override.");
     audioEngine.playSfx("breach");
 
@@ -1168,7 +1170,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // 3. Clear central infection around Kernel
     const newGrid = [...state.grid];
     const center = CORE_POS;
-    let purgedCount = 0;
 
     for (let dx = -4; dx <= 4; dx++) {
       for (let dy = -4; dy <= 4; dy++) {
@@ -1179,7 +1180,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const cell = newGrid[idx];
           if (cell && cell.state !== "clean" && !cell.isCoreNode && !cell.isDeadMemory) {
             newGrid[idx] = { ...cell, state: "clean", infectionLevel: 0 };
-            purgedCount++;
           }
         }
       }
@@ -1200,7 +1200,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         type: "emp_pulse" as const,
         x: center.x,
         y: center.y,
-        text: "⚡ OVERRIDE MATRIX DISPATCHED",
+        text: "⚡ EMERGENCY_PURGE.EXE DISPATCHED",
         bornAt: state.elapsedMs,
       },
     ];
@@ -1222,8 +1222,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isPrivilegeSuspended: false,
         osAlertBanner: null,
       });
-      get().addLog("PATCH", "Privileges restored.");
-      get().showOsToast("Privileges restored. Finalizing patch...");
+      get().addLog("PATCH", "[SYSTEM] Threat neutralized. User privileges restored.");
+      get().showOsToast("Threat neutralized. User privileges restored.");
     }, 3500);
   },
 }));

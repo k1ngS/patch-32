@@ -218,6 +218,7 @@ export interface GameState {
   firstBitsTimeMs: number;
   hasAppliedPatch: boolean;
   hasTriggeredLockEvent: boolean;
+  hasTriggeredOverride: boolean;
   isPrivilegeSuspended: boolean;
   isOverrideActive: boolean;
   osAlertBanner: string | null;

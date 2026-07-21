@@ -11,6 +11,7 @@ import { ActionBar } from "@/components/hud/ActionBar";
 import { LogTerminal } from "@/components/hud/LogTerminal";
 import { TelemetryPanel } from "@/components/hud/TelemetryPanel";
 import { SystemAlertBanner } from "@/components/hud/SystemAlertBanner";
+import { SystemOverrideOverlay } from "@/components/hud/SystemOverrideOverlay";
 import { audioEngine } from "@/utils/audioEngine";
 
 import React, { useState, useEffect } from "react";
@@ -71,6 +72,9 @@ export default function Home() {
       
       {/* BACKGROUND SCANLINE & MATRIX ATMOSPHERE */}
       <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.4)_50%)] bg-[length:100%_4px] pointer-events-none z-0" />
+
+      {/* EMERGENCY SYSTEM OVERRIDE OVERLAY */}
+      <SystemOverrideOverlay />
 
       {/* TELAS FULLSCREEN: MENU, TUTORIAL E GAMEOVER */}
       {activeScreen === "menu" && <MainMenu />}

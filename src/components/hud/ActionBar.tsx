@@ -71,6 +71,8 @@ export function ActionBar() {
   const purchaseUpgrade = useGameStore((state) => state.purchaseUpgrade);
   const setOverclockPressed = useGameStore((state) => state.setOverclockPressed);
   const isPrivilegeSuspended = useGameStore((state) => state.isPrivilegeSuspended);
+  const isOverrideActive = useGameStore((state) => state.isOverrideActive);
+  const isInputLocked = useGameStore((state) => state.isInputLocked);
   const showOsToast = useGameStore((state) => state.showOsToast);
 
   const [injectingMap, setInjectingMap] = useState<Record<string, boolean>>({});
@@ -193,20 +195,22 @@ export function ActionBar() {
 
       {/* OVERCLOCK ACTION BUTTON */}
       <button
-        disabled={!isOcReady && !isPrivilegeSuspended}
+        disabled={(!isOcReady && !isPrivilegeSuspended) || isOverrideActive || isInputLocked}
         onClick={handleOverclockClick}
         onMouseEnter={() => setHoveredUpgradeId("overclock")}
         onMouseLeave={() => setHoveredUpgradeId(null)}
         className={`relative overflow-hidden flex items-center justify-center px-3 py-1 border font-bold uppercase tracking-wider transition-colors shrink-0 rounded-none text-[10px] ${
-          isPrivilegeSuspended
-            ? "bg-red-950/40 border-red-500 text-red-400 cursor-pointer animate-pulse"
-            : !isOcUnlocked
-              ? "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed"
-              : core.overclockActive
-                ? "bg-amber-900/30 border-amber-500 text-amber-400 animate-pulse"
-                : isOcReady
-                  ? "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black cursor-pointer"
-                  : "bg-black border-zinc-900 text-amber-700/60 cursor-not-allowed"
+          isOverrideActive || isInputLocked
+            ? "opacity-40 pointer-events-none cursor-not-allowed border-red-900/60 bg-red-950/20 text-red-500"
+            : isPrivilegeSuspended
+              ? "bg-red-950/40 border-red-500 text-red-400 cursor-pointer animate-pulse"
+              : !isOcUnlocked
+                ? "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed"
+                : core.overclockActive
+                  ? "bg-amber-900/30 border-amber-500 text-amber-400 animate-pulse"
+                  : isOcReady
+                    ? "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black cursor-pointer"
+                    : "bg-black border-zinc-900 text-amber-700/60 cursor-not-allowed"
         }`}
       >
         {isOcUnlocked && (!isOcReady || core.overclockActive) && !isPrivilegeSuspended && (
@@ -239,18 +243,20 @@ export function ActionBar() {
           return (
             <button
               key={config.id}
-              disabled={isMax || !canAfford || isInjecting}
+              disabled={isMax || !canAfford || isInjecting || isOverrideActive || isInputLocked}
               onClick={() => handlePurchase(config.id)}
               onMouseEnter={() => setHoveredUpgradeId(config.id)}
               onMouseLeave={() => setHoveredUpgradeId(null)}
               className={`flex flex-col justify-between p-1.5 rounded-none border text-left transition-colors relative min-w-[70px] ${
-                isInjecting
-                  ? "bg-cyan-900/30 border-cyan-500 text-cyan-200"
-                  : isMax
-                    ? "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed opacity-80"
-                    : canAfford
-                      ? "bg-[#020202] hover:bg-zinc-900 border-zinc-800 hover:border-cyan-500 text-zinc-300 cursor-pointer"
-                      : "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed"
+                isOverrideActive || isInputLocked
+                  ? "opacity-40 pointer-events-none cursor-not-allowed border-zinc-900 text-zinc-700 bg-black"
+                  : isInjecting
+                    ? "bg-cyan-900/30 border-cyan-500 text-cyan-200"
+                    : isMax
+                      ? "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed opacity-80"
+                      : canAfford
+                        ? "bg-[#020202] hover:bg-zinc-900 border-zinc-800 hover:border-cyan-500 text-zinc-300 cursor-pointer"
+                        : "bg-black border-zinc-900 text-zinc-700 cursor-not-allowed"
               }`}
             >
               <div className="flex justify-between items-center w-full text-[9px] mb-0.5">

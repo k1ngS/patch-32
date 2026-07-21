@@ -11,6 +11,13 @@ export function useCanvasInput(canvasRef: React.RefObject<HTMLCanvasElement | nu
     if (!canvas) return;
 
     const handlePointerMove = (e: PointerEvent) => {
+      const isOverrideActive = useGameStore.getState().isOverrideActive;
+      const isInputLocked = useGameStore.getState().isInputLocked;
+      if (isOverrideActive || isInputLocked) {
+        mouseGridRef.current = null;
+        return;
+      }
+
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -29,8 +36,12 @@ export function useCanvasInput(canvasRef: React.RefObject<HTMLCanvasElement | nu
     };
 
     const handlePointerDown = (e: PointerEvent) => {
+      const isOverrideActive = useGameStore.getState().isOverrideActive;
+      const isInputLocked = useGameStore.getState().isInputLocked;
+      if (isOverrideActive || isInputLocked) return;
+
       const state = useGameStore.getState();
-      if (state.phase !== 'playing' || state.isInputLocked) return;
+      if (state.phase !== 'playing') return;
 
       if (e.button === 0 && mouseGridRef.current) {
         const gx = mouseGridRef.current.x;
@@ -60,8 +71,12 @@ export function useCanvasInput(canvasRef: React.RefObject<HTMLCanvasElement | nu
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const isOverrideActive = useGameStore.getState().isOverrideActive;
+      const isInputLocked = useGameStore.getState().isInputLocked;
+      if (isOverrideActive || isInputLocked) return;
+
       const state = useGameStore.getState();
-      if (state.phase !== 'playing' || state.isInputLocked) return;
+      if (state.phase !== 'playing') return;
 
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') {
         state.setOverclockPressed();
