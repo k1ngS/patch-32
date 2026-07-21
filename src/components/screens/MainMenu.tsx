@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useGameStore } from "@/store/useGameStore";
+import { audioEngine } from "@/utils/audioEngine";
 
 const BOOT_LINES = [
   "Powering on...",
@@ -25,6 +26,11 @@ export function MainMenu() {
   const [displayedBootLines, setDisplayedBootLines] = useState<string[]>([]);
   const [displayedAuthLines, setDisplayedAuthLines] = useState<string[]>([]);
 
+  // Play boot chime on menu start
+  useEffect(() => {
+    audioEngine.playBootChime();
+  }, []);
+
   // Finish boot instantly (skip)
   const skipBoot = useCallback(() => {
     setDisplayedBootLines(BOOT_LINES);
@@ -33,6 +39,7 @@ export function MainMenu() {
 
   // Finish auth instantly (skip)
   const skipAuth = useCallback(() => {
+    audioEngine.playBootChime();
     setDisplayedAuthLines(AUTH_LINES);
     setActiveScreen("tutorial");
   }, [setActiveScreen]);

@@ -219,6 +219,7 @@ export interface GameState {
   hasAppliedPatch: boolean;
   hasTriggeredLockEvent: boolean;
   isPrivilegeSuspended: boolean;
+  isOverrideActive: boolean;
   osAlertBanner: string | null;
   osToastMessage: string | null;
   isInputLocked: boolean;

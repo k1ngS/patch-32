@@ -24,15 +24,15 @@ export function SystemAlertBanner() {
           <div className="bg-[#050000] border-2 border-red-500 p-6 shadow-[0_0_50px_rgba(239,68,68,0.5)] max-w-lg w-full flex flex-col items-center text-center space-y-4 font-mono relative">
             <div className="flex items-center gap-2 text-red-500 font-bold text-sm tracking-widest uppercase bg-red-950/60 px-3 py-1 border border-red-800">
               <span className="animate-ping">⚠️</span>
-              OPERATING SYSTEM REVOCATION
+              [ WARNING: CRITICAL KERNEL BREACH DETECTED ]
             </div>
 
-            <h3 className="text-xl font-bold text-red-400 tracking-wider">
-              USER CONTROL TEMPORARILY SUSPENDED
+            <h3 className="text-lg font-bold text-red-400 tracking-wider">
+              EMERGENCY SYSTEM OVERRIDE
             </h3>
 
             <p className="text-xs text-red-300/90 leading-relaxed bg-black/80 p-3 border border-red-950 w-full text-left">
-              The operating system kernel has temporarily revoked operator privileges to execute an emergency hardware isolation sweep.
+              User privileges temporarily suspended for emergency system override.
             </p>
 
             <div className="w-full flex items-center justify-between bg-black p-3 border border-red-900 text-xs">

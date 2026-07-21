@@ -104,7 +104,7 @@ export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetr
       </div>
 
       {/* BITS ECONOMY */}
-      <div className="flex flex-col items-end min-w-[65px] sm:min-w-[95px]" title="Recovered Computational Resources (CPU / RAM / Cache)">
+      <div className="flex flex-col items-end min-w-[65px] sm:min-w-[95px]" title="Recovered Compute Capacity (CPU/RAM Bits)">
         <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Bits</span>
         <span className="text-xs sm:text-sm font-bold text-amber-500 flex items-center gap-1">
           <span className="text-amber-400 font-normal">₿</span> {score.currency}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useGameStore } from "@/store/useGameStore";
+import { audioEngine } from "@/utils/audioEngine";
 
 function formatTime(seconds: number) {
   const mins = Math.floor(seconds / 60);
@@ -39,6 +40,31 @@ export function GameOverReport() {
     if (defeatStep === "glitch") setDefeatStep("bsod");
     else if (defeatStep === "bsod") setDefeatStep("recovery");
   }, [defeatStep]);
+
+  // Victory audio chime
+  useEffect(() => {
+    if (isVictory) {
+      audioEngine.playBootChime();
+    } else {
+      audioEngine.playCrtShutdown();
+    }
+  }, [isVictory]);
+
+  const handleReinstall = () => {
+    audioEngine.playUiClick();
+    audioEngine.playBootChime();
+    initGame();
+    startGame();
+    setActiveScreen("game");
+  };
+
+  const handleVictoryRestart = () => {
+    audioEngine.playUiClick();
+    audioEngine.playBootChime();
+    useGameStore.setState({ hasAppliedPatch: true });
+    initGame();
+    setActiveScreen("menu");
+  };
 
   // Victory entrance transition timer
   useEffect(() => {
@@ -84,18 +110,6 @@ export function GameOverReport() {
       window.removeEventListener("keydown", handleSkip);
     };
   }, [isVictory, defeatStep, skipDefeatTransition]);
-
-  const handleReinstall = () => {
-    initGame();
-    startGame();
-    setActiveScreen("game");
-  };
-
-  const handleVictoryRestart = () => {
-    useGameStore.setState({ hasAppliedPatch: true });
-    initGame();
-    setActiveScreen("menu");
-  };
 
   // ── 1. VICTORY FLOW ─────────────────────────────────────────
   if (isVictory) {

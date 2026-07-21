@@ -24,17 +24,20 @@ export function LogTerminal() {
       <div className="flex-1 overflow-y-auto flex flex-col-reverse custom-scrollbar space-y-1 space-y-reverse">
         {logs.slice().reverse().map((log) => {
           let typeCol = "text-zinc-500";
-          if (log.type === "PURGE") typeCol = "text-cyan-500 font-bold";
-          else if (log.type === "CHAIN") typeCol = "text-amber-500 font-bold";
-          else if (log.type === "PATCH") typeCol = "text-green-500 font-bold";
-          else if (log.type === "BREACH" || log.type === "HALT") typeCol = "text-red-500 font-bold";
+          if (log.type === "PURGE") typeCol = "text-cyan-400 font-bold";
+          else if (log.type === "CHAIN") typeCol = "text-amber-400 font-bold";
+          else if (log.type === "PATCH") typeCol = "text-emerald-400 font-bold";
+          else if (log.type === "BREACH" || log.type === "HALT") typeCol = "text-red-400 font-bold";
           else if (log.type === "INFO") typeCol = "text-zinc-600";
 
           return (
-            <div key={log.id} className="leading-tight break-words border-l-2 border-zinc-900 pl-1.5 py-0.5">
-              <span className="text-zinc-600">[{formatTime(log.timeMs)}]</span>{" "}
+            <div
+              key={log.id}
+              className="leading-tight break-words border-l-2 border-zinc-900 hover:border-cyan-500/40 pl-1.5 py-0.5 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out transition-all"
+            >
+              <span className="text-zinc-600 font-mono">[{formatTime(log.timeMs)}]</span>{" "}
               <span className={`${typeCol}`}>{log.type}</span>{" "}
-              <span className="text-zinc-400">// {log.message}</span>
+              <span className="text-zinc-300">// {log.message}</span>
             </div>
           );
         })}

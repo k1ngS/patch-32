@@ -160,6 +160,7 @@ function createInitialState(): GameState {
     hasAppliedPatch: false,
     hasTriggeredLockEvent: false,
     isPrivilegeSuspended: false,
+    isOverrideActive: false,
     osAlertBanner: null,
     osToastMessage: null,
     isInputLocked: false,
@@ -1125,14 +1126,104 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     if (state.hasTriggeredLockEvent) return;
 
+    // 1. Trigger flags & Alert modal text
     set({
       hasTriggeredLockEvent: true,
+      isOverrideActive: true,
       isPrivilegeSuspended: true,
       isInputLocked: true,
       inputLockRemainingMs: 3500,
-      osAlertBanner: "⚠️ CRITICAL OPERATING SYSTEM KERNEL REVOCATION // USER CONTROL TEMPORARILY HIJACKED",
+      osAlertBanner: "[ WARNING: CRITICAL KERNEL BREACH DETECTED ]",
     });
 
-    state.addLog("HALT", "⚠️ SYSTEM WARNING: OPERATOR CONTROL TEMPORARILY REVOKED BY OS KERNEL.");
+    state.addLog("HALT", "[ WARNING: CRITICAL KERNEL BREACH DETECTED ]");
+    state.addLog("BREACH", "User privileges temporarily suspended for emergency system override.");
+    audioEngine.playSfx("breach");
+
+    // 2. Position 4 strategic Emitters around Kernel in matrix formation
+    const matrixPositions = [
+      { x: 14, y: 14 },
+      { x: 18, y: 14 },
+      { x: 14, y: 18 },
+      { x: 18, y: 18 },
+    ];
+
+    const currentNodes = [...state.emitterNodes];
+    let nextId = state.nextEmitterId;
+
+    for (const pos of matrixPositions) {
+      if (!currentNodes.some((e) => e.pos.x === pos.x && e.pos.y === pos.y)) {
+        currentNodes.push({
+          id: nextId++,
+          pos,
+          length: 6,
+          state: "ready",
+          cooldownMs: 0,
+          shotsFired: 0,
+          isOverheated: false,
+        });
+      }
+    }
+
+    // 3. Clear central infection around Kernel
+    const newGrid = [...state.grid];
+    const center = CORE_POS;
+    let purgedCount = 0;
+
+    for (let dx = -4; dx <= 4; dx++) {
+      for (let dy = -4; dy <= 4; dy++) {
+        const gx = center.x + dx;
+        const gy = center.y + dy;
+        if (gx >= 0 && gx < GRID_SIZE && gy >= 0 && gy < GRID_SIZE) {
+          const idx = posToIndex(gx, gy);
+          const cell = newGrid[idx];
+          if (cell && cell.state !== "clean" && !cell.isCoreNode && !cell.isDeadMemory) {
+            newGrid[idx] = { ...cell, state: "clean", infectionLevel: 0 };
+            purgedCount++;
+          }
+        }
+      }
+    }
+
+    // Damage parasites in central matrix area
+    for (const p of state.parasites) {
+      if (Math.abs(p.pos.x - center.x) <= 4 && Math.abs(p.pos.y - center.y) <= 4) {
+        p.hp -= 80;
+        if (p.hp <= 0) p.markedForRemoval = true;
+      }
+    }
+
+    const newVisualEvents = [
+      ...state.visualEvents,
+      {
+        id: state.nextVisualEventId,
+        type: "emp_pulse" as const,
+        x: center.x,
+        y: center.y,
+        text: "⚡ OVERRIDE MATRIX DISPATCHED",
+        bornAt: state.elapsedMs,
+      },
+    ];
+
+    set({
+      grid: newGrid,
+      emitterNodes: currentNodes,
+      nextEmitterId: nextId,
+      visualEvents: newVisualEvents,
+      nextVisualEventId: state.nextVisualEventId + 1,
+      trauma: 0.8,
+    });
+
+    // 4. After 3.5 seconds, restore privileges & log exact required text
+    setTimeout(() => {
+      set({
+        isOverrideActive: false,
+        isInputLocked: false,
+        isPrivilegeSuspended: false,
+        osAlertBanner: null,
+      });
+      get().addLog("PATCH", "Privileges restored.");
+      get().showOsToast("Privileges restored. Finalizing patch...");
+    }, 3500);
   },
 }));
