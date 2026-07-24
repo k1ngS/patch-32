@@ -46,13 +46,53 @@ class AudioEngine {
   }
 
   playSfx(type: "purge" | "overclock" | "throttle" | "breach") {
-    if (typeof window !== "undefined" && this.sfxMap[type]) {
-      const sfx = new Audio(this.sfxMap[type]);
-      sfx.volume = type === "breach" ? 0.7 : 0.5;
-      sfx.play().catch(() => {
-        // Fallback to web audio synth if audio file fails
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      if (type === "purge") {
+        // Soft OS Data Process / Memory Release Bleep
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.04);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      } else if (type === "breach") {
+        // Soft System Exception Warning Tone
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.setValueAtTime(180, now + 0.08);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      } else if (type === "overclock") {
+        // Bus Overdrive Processing Chime
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(1040, now + 0.08);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      } else {
+        // Thermal Throttle OS Alert
         this.playUiClick();
-      });
+      }
+    } catch {
+      // Ignore audio errors
     }
   }
 

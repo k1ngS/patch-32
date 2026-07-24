@@ -4,6 +4,15 @@ body {
   background-color: #050508;
   color: #e0e0e0;
   overflow-x: hidden;
+  cursor: url('/cursors/patch32_cursor_default.png') 1 1, auto;
+}
+
+.grid-canvas {
+  cursor: url('/cursors/patch32_cursor_scan.png') 12 12, crosshair;
+}
+
+.action-target {
+  cursor: url('/cursors/patch32_cursor_execute.png') 2 9, pointer;
 }
 
 /* Custom tactical scrollbar for the hacker dashboard */

@@ -54,18 +54,18 @@ export function drawEmitters(
 
     ctx.restore();
 
-    // Discrete Range Verification Boundary (thin dashed monitoring line)
+    // Rectangular Sector Bus Scan Boundary (thin dashed administrative monitoring region)
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, emitter.length * TILE_SIZE, 0, Math.PI * 2);
-    ctx.setLineDash([2, 4]);
+    const scanRadius = emitter.length * TILE_SIZE;
     ctx.strokeStyle = isOverheated
       ? "rgba(239, 68, 68, 0.25)"
       : isBooting
         ? "rgba(245, 158, 11, 0.25)"
-        : "rgba(6, 182, 212, 0.2)";
+        : "rgba(6, 182, 212, 0.18)";
     ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.setLineDash([3, 4]);
+    ctx.strokeRect(cx - scanRadius, cy - scanRadius, scanRadius * 2, scanRadius * 2);
+    ctx.setLineDash([]);
     ctx.restore();
 
     // Overheated System Status Banner

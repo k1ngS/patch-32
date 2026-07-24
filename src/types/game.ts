@@ -263,6 +263,7 @@ export interface GameActions {
   addScore: (points: number) => void;
   updateCombo: (deltaMs: number) => void;
   placeEmitter: (gridX: number, gridY: number) => boolean;
+  manualMemoryPurge: (gridX: number, gridY: number) => boolean;
   addLog: (type: LogEntry["type"], message: string) => void;
   showOsToast: (msg: string) => void;
   clearOsToast: () => void;

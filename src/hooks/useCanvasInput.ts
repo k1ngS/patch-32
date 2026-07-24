@@ -56,8 +56,8 @@ export function useCanvasInput(canvasRef: React.RefObject<HTMLCanvasElement | nu
           // Reboot / Flush Emitter
           state.rebootEmitter(existingEmitter.id);
         } else {
-          // Place new Emitter Node
-          state.placeEmitter(gx, gy);
+          // Perform manual memory purge or place process node
+          state.manualMemoryPurge(gx, gy);
         }
       } else if (e.button === 2) {
         // Right click fires Drone EMP Pulse

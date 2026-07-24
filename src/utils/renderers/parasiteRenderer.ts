@@ -18,12 +18,9 @@ export function drawParasites(
     const p = parasites[i];
     if (p.markedForRemoval) continue;
 
-    const prev = p.prevPos || p.pos;
-    const lerpX = prev.x + (p.pos.x - prev.x) * tickProgress;
-    const lerpY = prev.y + (p.pos.y - prev.y) * tickProgress;
-
-    const px = lerpX * TILE_SIZE + TILE_SIZE / 2;
-    const py = lerpY * TILE_SIZE + TILE_SIZE / 2;
+    // Grid-snapped memory sector position (no unit walking/sliding interpolation)
+    const px = p.pos.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = p.pos.y * TILE_SIZE + TILE_SIZE / 2;
 
     switch (p.variant) {
       case "pulse_worm":

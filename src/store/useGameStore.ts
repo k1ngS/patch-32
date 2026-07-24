@@ -118,8 +118,8 @@ function createInitialState(): GameState {
       multiplier: 1,
       comboCount: 0,
       comboTimerMs: 0,
-      currency: 0,
-      displayedCurrency: 0,
+      currency: 250,
+      displayedCurrency: 250,
       totalPurges: 0,
       longestChain: 0,
       parasitesLeaked: 0,
@@ -459,8 +459,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           freezeFrames = 4;
         }
 
-        pushLog("PURGE", `> PURGE EXECUTED // METRIC: ${purgeResult.cleansedIndices.length} CELLS DELETED`);
-        pushLog("PURGE", "[PROCESS] // Memory block recovered. Allocation released.");
+        pushLog("PURGE", `> ROUTINE EXECUTION // METRIC: ${purgeResult.cleansedIndices.length} CELLS DEALLOCATED`);
+        pushLog("PURGE", "[PROCESS] // Memory block state: CORRUPTED -> ISOLATED -> PURGED -> FREED");
         audioEngine.playSfx("purge");
         if (purgeResult.chainLength > 1) {
           pushLog("CHAIN", `> CASCADE CLIMAX // REACTION EXPONENT: ${purgeResult.chainLength}`);
@@ -1042,6 +1042,73 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextEmitterId: state.nextEmitterId + 1,
       score: { ...state.score, currency: state.score.currency - cost },
     });
+    return true;
+  },
+
+  manualMemoryPurge: (gridX: number, gridY: number) => {
+    const state = get();
+    if (state.phase !== "playing" || state.isInputLocked) return false;
+    if (!isInBounds(gridX, gridY)) return false;
+
+    const idx = posToIndex(gridX, gridY);
+    const node = state.grid[idx];
+    if (!node) return false;
+
+    const pOnCell = state.parasites.find(
+      (p) => p.pos.x === gridX && p.pos.y === gridY && !p.markedForRemoval
+    );
+
+    // If cell is clean & no parasite, delegate to process node placement
+    if (node.state === "clean" && !pOnCell) {
+      return state.placeEmitter(gridX, gridY);
+    }
+
+    // Corrupted cell or exception present -> manual purge requires 10 Bits
+    const PURGE_COST = 10;
+    if (state.score.currency < PURGE_COST) {
+      state.showOsToast("Insufficient Bits capacity for manual memory purge.");
+      return false;
+    }
+
+    const newGrid = [...state.grid];
+    if (!node.isDeadMemory && !node.isCoreNode) {
+      newGrid[idx] = { ...node, state: "clean", infectionLevel: 0 };
+    }
+
+    if (pOnCell) {
+      pOnCell.markedForRemoval = true;
+    }
+
+    const hexAddr = `0x${(((gridX * 32 + gridY) * 17) % 0xffff).toString(16).toUpperCase()}`;
+    audioEngine.playSfx("purge");
+
+    set((s) => ({
+      grid: newGrid,
+      score: { ...s.score, currency: s.score.currency - PURGE_COST },
+      visualEvents: [
+        ...s.visualEvents,
+        {
+          id: s.nextVisualEventId,
+          type: "ram_freed" as const,
+          x: gridX,
+          y: gridY,
+          text: "RAM_FREED",
+          bornAt: s.elapsedMs,
+        },
+      ],
+      nextVisualEventId: s.nextVisualEventId + 1,
+      logs: [
+        ...s.logs,
+        {
+          id: s.nextLogId,
+          timeMs: s.elapsedMs,
+          type: "PURGE" as const,
+          message: `> PURGE EXECUTED // BLOCK ${hexAddr} RELEASED // MEMORY FREED +32MB`,
+        },
+      ].slice(-30),
+      nextLogId: s.nextLogId + 1,
+    }));
+
     return true;
   },
 

@@ -82,12 +82,12 @@ export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetr
       <div className="flex-1 max-w-md flex flex-col space-y-0.5">
         <div className="flex justify-between items-center text-xs">
           <span className="text-zinc-500 uppercase text-[9px] sm:text-[10px] font-bold tracking-wider flex items-center gap-1">
-            Kernel Integrity
+            Kernel RAM Stability
             {isCriticalHealth && <span className="text-red-500 animate-ping font-bold">[CRITICAL]</span>}
             {!isCriticalHealth && isLowHealth && <span className="text-amber-500 font-bold">[WARN]</span>}
           </span>
           <span className={`font-bold text-[9px] sm:text-[10px] ${isCriticalHealth ? "text-red-500" : isLowHealth ? "text-amber-400" : "text-cyan-400"}`}>
-            {Math.ceil(core.health)} / {CORE_MAX_HEALTH}
+            {Math.ceil(healthPercentage)}%
           </span>
         </div>
         <div className="w-full h-1.5 sm:h-2 bg-black border border-zinc-900 overflow-hidden relative">
@@ -98,7 +98,7 @@ export function TopHUD({ showLogs, showTelemetry, onToggleLogs, onToggleTelemetr
         </div>
         {core.shieldPoints > 0 && (
           <span className="text-[9px] text-amber-400 uppercase tracking-wider text-right font-bold">
-            + {Math.ceil(core.shieldPoints)} FIREWALL SHIELD
+            + {Math.ceil(core.shieldPoints)} FIREWALL BUFFER
           </span>
         )}
       </div>
